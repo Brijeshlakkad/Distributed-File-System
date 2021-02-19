@@ -1,2 +1,4 @@
-/** Conformance tests for the path library. */
+/**
+ * Conformance tests for the path library.
+ */
 package conformance.common;

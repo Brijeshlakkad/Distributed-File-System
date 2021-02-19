@@ -1,11 +1,13 @@
 package storage;
 
-import java.io.*;
-import java.net.*;
+import common.Path;
+import naming.Registration;
+import rmi.RMIException;
 
-import common.*;
-import rmi.*;
-import naming.*;
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.net.UnknownHostException;
 
 /**
  * Storage server.
@@ -31,7 +33,8 @@ public class StorageServer implements Storage, Command {
      *
      * @param hostname      The externally-routable hostname of the local host on which the storage server is running.
      *                      This is used to ensure that the stub which is provided to the naming server by the
-     *                      <code>start</code> method carries the externally visible hostname or address of this storage
+     *                      <code>start</code> method carries the externally visible hostname or address of this
+     *                      storage
      *                      server.
      * @param naming_server Remote interface for the naming server with which the storage server is to register.
      * @throws UnknownHostException  If a stub cannot be created for the storage server because a valid address has not

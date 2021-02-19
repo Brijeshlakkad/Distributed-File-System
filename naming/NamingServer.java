@@ -19,7 +19,8 @@ import java.io.FileNotFoundException;
  * The naming server provides two interfaces, <code>Service</code> and
  * <code>Registration</code>, which are accessible through RMI. Storage servers
  * use the <code>Registration</code> interface to inform the naming server of their existence. Clients use the
- * <code>Service</code> interface to perform most filesystem operations. The documentation accompanying these interfaces
+ * <code>Service</code> interface to perform most filesystem operations. The documentation accompanying these
+ * interfaces
  * provides details on the methods supported.
  *
  * <p>

@@ -1,3 +1,4 @@
-/** Classes common between all filesystem components.
+/**
+ * Classes common between all filesystem components.
  */
 package common;
