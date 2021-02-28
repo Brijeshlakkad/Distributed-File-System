@@ -5,6 +5,7 @@ import rmi.RMIException;
 import storage.Storage;
 
 import java.io.FileNotFoundException;
+import java.rmi.Remote;
 
 /**
  * Naming server client service interface.
@@ -15,7 +16,7 @@ import java.io.FileNotFoundException;
  * <p>
  * The term <em>object</em> in the documentation below refers to any filesystem object: either a file or a directory.
  */
-public interface Service {
+public interface Service extends Remote {
     /**
      * Determines whether a path refers to a directory.
      *

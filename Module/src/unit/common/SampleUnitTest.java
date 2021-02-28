@@ -1,5 +1,6 @@
 package unit.common;
 
+import common.SampleClassUnderTest;
 import test.Test;
 import test.TestFailed;
 

@@ -5,13 +5,15 @@ import rmi.RMIException;
 import storage.Command;
 import storage.Storage;
 
+import java.rmi.Remote;
+
 /**
  * Naming server registration interface.
  *
  * <p>
  * This interface is used once, on startup, by each storage server.
  */
-public interface Registration {
+public interface Registration extends Remote {
     /**
      * Registers a storage server with the naming server.
      *

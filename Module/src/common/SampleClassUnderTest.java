@@ -18,11 +18,11 @@ package common;
  * code directories with non-production code. The unit tests are in a parallel source tree under the directory
  * <code>unit/</code>.
  */
-class SampleClassUnderTest {
+public class SampleClassUnderTest {
     /**
      * Returns the triple of its argument.
      */
-    int triple(int x) {
+    public int triple(int x) {
         return x * 3;
     }
 }

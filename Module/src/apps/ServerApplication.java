@@ -94,16 +94,14 @@ abstract class ServerApplication extends Application {
             System.err.println(e.getMessage());
             System.exit(EXIT_FAILURE);
         } catch (Throwable t) {
-            System.err.println("unable to start " + serverType() + " server: " +
-                    t);
+            System.err.println("unable to start " + serverType() + " server: " + t);
             t.printStackTrace(System.err);
             System.exit(EXIT_FAILURE);
         }
 
         // Print a message indicating the server has started.
         System.out.println(serverType() + " server started");
-        System.out.println("send EOF on standard input (Ctrl+D or Ctrl+Z, " +
-                "Enter) to force server to exit.");
+        System.out.println("send EOF on standard input (Ctrl+D or Ctrl+Z, Enter) to force server to exit.");
 
         // Start a thread to monitor for EOF on standard input.
         new Thread(new EOFThread()).start();

@@ -1,6 +1,13 @@
 package rmi;
 
 import java.net.InetSocketAddress;
+import java.net.MalformedURLException;
+import java.rmi.Naming;
+import java.rmi.NotBoundException;
+import java.rmi.Remote;
+import java.rmi.RemoteException;
+import java.rmi.registry.LocateRegistry;
+import java.rmi.server.UnicastRemoteObject;
 
 /**
  * RMI skeleton
@@ -23,6 +30,10 @@ import java.net.InetSocketAddress;
  * or <code>service_error</code>.
  */
 public class Skeleton<T> {
+    private Class<T> c;
+    private T server;
+    private InetSocketAddress address;
+
     /**
      * Creates a <code>Skeleton</code> with no initial server address. The address will be determined by the system
      * when
@@ -43,7 +54,15 @@ public class Skeleton<T> {
      *                              <code>server</code> is <code>null</code>.
      */
     public Skeleton(Class<T> c, T server) {
-        throw new UnsupportedOperationException("not implemented");
+        if (c == null || server == null) {
+            throw new NullPointerException("Null parameter(s).");
+        }
+        // Checks if c represents a remote interface.
+        if (!c.isAssignableFrom(Remote.class)) {
+            throw new Error();
+        }
+        this.c = c;
+        this.server = server;
     }
 
     /**
@@ -66,7 +85,16 @@ public class Skeleton<T> {
      *                              <code>server</code> is <code>null</code>.
      */
     public Skeleton(Class<T> c, T server, InetSocketAddress address) {
-        throw new UnsupportedOperationException("not implemented");
+        if (c == null || server == null || address == null) {
+            throw new NullPointerException("Null parameter(s).");
+        }
+        // Checks if c represents a remote interface.
+        if (!Remote.class.isAssignableFrom(c)) {
+            throw new Error();
+        }
+        this.c = c;
+        this.server = server;
+        this.address = address;
     }
 
     /**
@@ -103,7 +131,12 @@ public class Skeleton<T> {
      * connections, <code>false</code> if the server is to shut down.
      */
     protected boolean listen_error(Exception exception) {
-        return false;
+        // TODO
+        if (exception != null) {
+            this.stopped(exception);
+            return false;
+        }
+        return true;
     }
 
     /**
@@ -129,7 +162,14 @@ public class Skeleton<T> {
      *                      created, or when the server has already been started and has not since stopped.
      */
     public synchronized void start() throws RMIException {
-        throw new UnsupportedOperationException("not implemented");
+        if (address != null) {
+            try {
+                LocateRegistry.createRegistry(address.getPort());
+                Naming.rebind("rmi://"+address.getHostName()+":"+address.getPort(), UnicastRemoteObject.exportObject((Remote) this.c.cast(server)));
+            } catch (RemoteException | MalformedURLException p_e) {
+                throw new RMIException("Listening socket can not be created!");
+            }
+        }
     }
 
     /**
@@ -142,6 +182,19 @@ public class Skeleton<T> {
      * restarted.
      */
     public synchronized void stop() {
-        throw new UnsupportedOperationException("not implemented");
+        try {
+            Naming.unbind(address.toString());
+        } catch (RemoteException | NotBoundException | MalformedURLException p_e) {
+            p_e.printStackTrace();
+        }
+    }
+
+    /**
+     * Gets the assigned at which skeleton is running.
+     *
+     * @return Value of the address.
+     */
+    public InetSocketAddress getAddress() {
+        return address;
     }
 }

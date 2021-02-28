@@ -1,7 +1,13 @@
 package rmi;
 
+import java.net.InetAddress;
 import java.net.InetSocketAddress;
+import java.net.MalformedURLException;
 import java.net.UnknownHostException;
+import java.rmi.Naming;
+import java.rmi.NotBoundException;
+import java.rmi.Remote;
+import java.rmi.RemoteException;
 
 /**
  * RMI stub factory.
@@ -17,7 +23,7 @@ import java.net.UnknownHostException;
  */
 public abstract class Stub {
     /**
-     * Creates a stub, given a skeleton with an assigned adress.
+     * Creates a stub, given a skeleton with an assigned address.
      *
      * <p>
      * The stub is assigned the address of the skeleton. The skeleton must either have been created with a fixed
@@ -42,7 +48,18 @@ public abstract class Stub {
      */
     public static <T> T create(Class<T> c, Skeleton<T> skeleton)
             throws UnknownHostException {
-        throw new UnsupportedOperationException("not implemented");
+        if (c == null || skeleton == null) {
+            throw new NullPointerException("Null parameter(s).");
+        }
+        // Checks if c represents a remote interface.
+        if (!c.isAssignableFrom(Remote.class)) {
+            throw new Error();
+        }
+        try {
+            return (T) Naming.lookup(skeleton.getAddress().toString());
+        } catch (NotBoundException | MalformedURLException | RemoteException p_e) {
+            throw new UnknownHostException();
+        }
     }
 
     /**
@@ -73,7 +90,19 @@ public abstract class Stub {
      */
     public static <T> T create(Class<T> c, Skeleton<T> skeleton,
                                String hostname) {
-        throw new UnsupportedOperationException("not implemented");
+        if (c == null || skeleton == null || hostname == null) {
+            throw new NullPointerException("Null parameter(s).");
+        }
+        // Checks if c represents a remote interface.
+        if (!c.isAssignableFrom(Remote.class)) {
+            throw new Error();
+        }
+        try {
+            InetAddress l_address = InetAddress.getByName(hostname + ":" + skeleton.getAddress().getPort());
+            return (T) Naming.lookup(l_address.toString());
+        } catch (NotBoundException | MalformedURLException | RemoteException | UnknownHostException p_e) {
+            throw new Error();
+        }
     }
 
     /**
@@ -93,6 +122,17 @@ public abstract class Stub {
      *                              this interface cannot be dynamically created.
      */
     public static <T> T create(Class<T> c, InetSocketAddress address) {
-        throw new UnsupportedOperationException("not implemented");
+        if (c == null || address == null) {
+            throw new NullPointerException("Null parameter(s).");
+        }
+        // Checks if c represents a remote interface.
+        if (!c.isAssignableFrom(Remote.class)) {
+            throw new Error();
+        }
+        try {
+            return (T) Naming.lookup(address.toString());
+        } catch (NotBoundException | MalformedURLException | RemoteException p_e) {
+            throw new Error();
+        }
     }
 }

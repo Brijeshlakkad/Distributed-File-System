@@ -10,7 +10,7 @@ import test.Test;
  * <p>
  * s run are:
  * <ul>
- * <li>{@link common.SampleUnitTest}</li>
+ * <li>{@link unit.common.SampleUnitTest}</li>
  * </ul>
  */
 public class UnitTests {
@@ -23,7 +23,7 @@ public class UnitTests {
         // Create the test list, the series object, and run the test series.
         @SuppressWarnings("unchecked")
         Class<? extends Test>[] tests =
-                new Class[]{common.SampleUnitTest.class};
+                new Class[]{unit.common.SampleUnitTest.class};
         Series series = new Series(tests);
         SeriesReport report = series.run(3, System.out);
 
