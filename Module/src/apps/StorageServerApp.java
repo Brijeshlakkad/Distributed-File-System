@@ -7,6 +7,7 @@ import storage.StorageServer;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.net.UnknownHostException;
+import java.rmi.RemoteException;
 
 /**
  * Storage server application.
@@ -65,8 +66,8 @@ public class StorageServerApp extends ServerApplication {
      */
     @Override
     protected void startServer(String[] arguments)
-            throws BadUsageException, UnknownHostException, FileNotFoundException,
-            RMIException {
+            throws RMIException, BadUsageException, UnknownHostException, FileNotFoundException,
+            RemoteException {
         // Check the command line arguments.
         if (arguments.length != 3) {
             throw new BadUsageException("arguments: hostname naming-server " +

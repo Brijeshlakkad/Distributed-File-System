@@ -3,6 +3,9 @@ package apps;
 import naming.NamingServer;
 import rmi.RMIException;
 
+import java.rmi.RemoteException;
+import java.rmi.registry.LocateRegistry;
+
 /**
  * Naming server application.
  *
@@ -43,7 +46,6 @@ public class NamingServerApp extends ServerApplication {
             throws BadUsageException, RMIException {
         if (arguments.length != 0)
             throw new BadUsageException("naming server expects no arguments");
-
         server = new StoppingNamingServer();
         server.start();
     }

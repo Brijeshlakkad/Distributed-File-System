@@ -6,9 +6,7 @@ import rmi.RMIException;
 import rmi.Skeleton;
 import rmi.Stub;
 
-import java.io.File;
-import java.io.FileNotFoundException;
-import java.io.IOException;
+import java.io.*;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.rmi.Remote;
@@ -104,29 +102,71 @@ public class StorageServer implements Storage, Command, Remote {
     // The following methods are documented in Storage.java.
     @Override
     public synchronized long size(Path file) throws FileNotFoundException {
-        throw new UnsupportedOperationException("not implemented");
+        if (file == null) {
+            throw new NullPointerException("Null parameter(s) found!");
+        }
+        File l_file = file.toFile(this.d_root);
+        if (!l_file.exists() || !l_file.isFile()) {
+            throw new FileNotFoundException("File not found!");
+        }
+        return l_file.length();
     }
 
     @Override
     public synchronized byte[] read(Path file, long offset, int length)
             throws FileNotFoundException, IOException {
-        throw new UnsupportedOperationException("not implemented");
+        if (file == null) {
+            throw new NullPointerException("Null parameter(s) found!");
+        }
+        File l_file = file.toFile(this.d_root);
+        if (!l_file.exists() || !l_file.isFile()) {
+            throw new FileNotFoundException("File not found!");
+        }
+        // Instantiate array
+        byte[] l_bytes = new byte[(int) l_file.length()];
+        try (FileInputStream l_inputStream = new FileInputStream(l_file)) {
+            // Read all bytes of File stream
+            l_inputStream.read(l_bytes, (int) offset, length);
+        }
+        return l_bytes;
     }
 
     @Override
     public synchronized void write(Path file, long offset, byte[] data)
             throws FileNotFoundException, IOException {
-        throw new UnsupportedOperationException("not implemented");
+        if (file == null) {
+            throw new NullPointerException("Null parameter(s) found!");
+        }
+        File l_file = file.toFile(this.d_root);
+        if (!l_file.exists() || !l_file.isFile()) {
+            throw new FileNotFoundException("File not found!");
+        }
+        long l_lengthOfFile = l_file.length() + data.length;
+        try (FileOutputStream l_outputStream = new FileOutputStream(l_file)) {
+            l_outputStream.write(data, (int) offset, (int) l_lengthOfFile);
+        }
     }
 
     // The following methods are documented in Command.java.
     @Override
     public synchronized boolean create(Path file) {
-        throw new UnsupportedOperationException("not implemented");
+        if (file == null) {
+            throw new NullPointerException("Null parameter(s) found!");
+        }
+        File l_file = file.toFile(this.d_root);
+        try {
+            return l_file.createNewFile();
+        } catch (IOException p_ioException) {
+            return false;
+        }
     }
 
     @Override
     public synchronized boolean delete(Path path) {
-        throw new UnsupportedOperationException("not implemented");
+        if (path == null) {
+            throw new NullPointerException("Null parameter(s) found!");
+        }
+        File l_file = path.toFile(this.d_root);
+        return l_file.delete();
     }
 }

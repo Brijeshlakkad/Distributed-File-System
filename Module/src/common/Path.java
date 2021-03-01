@@ -3,7 +3,9 @@ package common;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.Serializable;
+import java.net.URI;
 import java.util.*;
+import java.util.stream.Collectors;
 
 /**
  * Distributed filesystem paths.
@@ -43,13 +45,15 @@ public class Path implements Iterable<String>, Serializable {
      *                                  string.
      */
     public Path(Path path, String component) {
-        if (component.isEmpty() || component.contains(DELIMITER) || component.contains(COLON)) {
+        if (component == null || component.isEmpty() || component.contains(DELIMITER) || component.contains(COLON)) {
             throw new IllegalArgumentException("Invalid component path");
         }
-        // If provided path is empty
-        pathComponents = path.pathComponents == null ?
-                new ArrayList<>() :
-                path.pathComponents;
+        pathComponents = new ArrayList<>();
+        if (path != null) {
+            for (String l_path : path) {
+                pathComponents.add(l_path);
+            }
+        }
         pathComponents.add(component);
     }
 
@@ -65,7 +69,13 @@ public class Path implements Iterable<String>, Serializable {
      *                                  a colon character.
      */
     public Path(String path) {
-        pathComponents = new ArrayList<>(Arrays.asList(path.split("/")));
+        if (!path.startsWith(DELIMITER))
+            throw new IllegalArgumentException("Path string does not begin with a forward slash!");
+        pathComponents = new ArrayList<>(Arrays.asList(path.split(DELIMITER)));
+        // Remove if any empty string of if any spaces of sub-path.
+        pathComponents = pathComponents.stream().filter(p_pathComponent ->
+                !p_pathComponent.trim().isEmpty()
+        ).collect(Collectors.toList());
     }
 
     /**
@@ -79,7 +89,8 @@ public class Path implements Iterable<String>, Serializable {
      */
     @Override
     public Iterator<String> iterator() {
-        return pathComponents.iterator();
+        // As remove method is not supported, return an iterator from the unmodifiable list.
+        return Collections.unmodifiableList(pathComponents).iterator();
     }
 
     /**
@@ -91,14 +102,42 @@ public class Path implements Iterable<String>, Serializable {
      * @throws IllegalArgumentException If <code>directory</code> exists but does not refer to a directory.
      */
     public static Path[] list(File directory) throws FileNotFoundException {
-        if (directory.exists() && directory.isDirectory()) {
-            List<Path> l_paths = new ArrayList<>();
-            for (File filePath : Objects.requireNonNull(directory.listFiles())) {
-                l_paths.add(new Path(filePath.getPath()));
-            }
-            return l_paths.toArray(new Path[0]);
+        if (!directory.exists()) {
+            throw new FileNotFoundException("Directory does not exists");
         }
-        throw new FileNotFoundException("Directory does not exists");
+        if (!directory.isDirectory()) {
+            throw new IllegalArgumentException("Parameter does not refer to a directory.");
+        }
+        URI directoryURI = directory.toURI();
+        List<File> l_files = new ArrayList<>();
+        list(directory, l_files);
+
+        List<Path> l_paths = new ArrayList<>();
+        for (File l_file : Objects.requireNonNull(l_files)) {
+            URI fileURI = l_file.toURI();
+            URI relativePath = directoryURI.relativize(fileURI);
+            l_paths.add(new Path(DELIMITER.concat(relativePath.getPath())));
+        }
+        return l_paths.toArray(new Path[0]);
+    }
+
+    /**
+     * Private recursive method to get the list of files from the given directory.
+     *
+     * @param directory Value of directory to be traversed.
+     * @param files     Reference of the list where the traversed files to be added.
+     */
+    private static void list(File directory, List<File> files) {
+        // Get all files from a directory.
+        File[] fList = directory.listFiles();
+        if (fList != null)
+            for (File file : fList) {
+                if (file.isFile()) {
+                    files.add(file);
+                } else if (file.isDirectory()) {
+                    list(new File(file.getAbsolutePath()), files);
+                }
+            }
     }
 
     /**
@@ -120,8 +159,13 @@ public class Path implements Iterable<String>, Serializable {
         if (this.isRoot()) {
             throw new IllegalArgumentException("Path represents the root directory");
         }
-        Path parentPath = this;
-        parentPath.pathComponents = parentPath.pathComponents.subList(0, pathComponents.lastIndexOf(DELIMITER));
+        Path parentPath = new Path(this.toString());
+        int secondLastIndex = parentPath.pathComponents.size() - 1;
+        if (secondLastIndex < 0) {
+            return new Path();
+        }
+        // Exclusive secondLastIndex
+        parentPath.pathComponents = parentPath.pathComponents.subList(0, secondLastIndex);
         return parentPath;
     }
 
@@ -150,15 +194,22 @@ public class Path implements Iterable<String>, Serializable {
      */
     public boolean isSubpath(Path other) {
         int indexOfSub = 0;
+        int trackPathCount = 0;
+        if (pathComponents.size() < other.pathComponents.size()) {
+            return false;
+        }
         for (String pathComponent : pathComponents) {
-            if (indexOfSub >= other.pathComponents.size() ||
-                    !pathComponent.equals(other.pathComponents.get(indexOfSub))) {
-                return false;
+            try {
+                if (other.pathComponents.get(indexOfSub).equals(pathComponent)) {
+                    trackPathCount++;
+                }
+            } catch (IndexOutOfBoundsException p_index) {
+                break;
             }
             indexOfSub++;
         }
         // If each path components are equal, both paths are equal.
-        return true;
+        return trackPathCount == indexOfSub;
     }
 
     /**
@@ -168,7 +219,14 @@ public class Path implements Iterable<String>, Serializable {
      * @return The <code>File</code> object.
      */
     public File toFile(File root) {
-        return new File(root, this.toString());
+        // URI of the root.
+        URI rootURI = root.toURI();
+        // URI of this path.
+        URI thisURI = URI.create(this.toString());
+
+        // Relative path to root using this path.
+        URI relativePath = rootURI.relativize(thisURI);
+        return new File(relativePath);
     }
 
     /**

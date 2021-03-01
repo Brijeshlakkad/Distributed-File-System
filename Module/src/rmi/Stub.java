@@ -1,13 +1,15 @@
 package rmi;
 
-import java.net.InetAddress;
+import java.lang.reflect.Method;
 import java.net.InetSocketAddress;
-import java.net.MalformedURLException;
 import java.net.UnknownHostException;
-import java.rmi.Naming;
 import java.rmi.NotBoundException;
 import java.rmi.Remote;
 import java.rmi.RemoteException;
+import java.rmi.registry.LocateRegistry;
+import java.rmi.registry.Registry;
+import java.util.Arrays;
+import java.util.List;
 
 /**
  * RMI stub factory.
@@ -52,12 +54,21 @@ public abstract class Stub {
             throw new NullPointerException("Null parameter(s).");
         }
         // Checks if c represents a remote interface.
-        if (!c.isAssignableFrom(Remote.class)) {
+        if (!c.isInterface()) {
             throw new Error();
         }
+        // Checks if c represents a remote interface.
+        Method[] declaredMethods = c.getDeclaredMethods();
+        for (Method declaredMethod : declaredMethods) {
+            List<Class<?>> exceptionTypes = Arrays.asList(declaredMethod.getExceptionTypes());
+            if (!exceptionTypes.contains(RMIException.class)) {
+                throw new Error();
+            }
+        }
         try {
-            return (T) Naming.lookup(skeleton.getAddress().toString());
-        } catch (NotBoundException | MalformedURLException | RemoteException p_e) {
+            Registry registry = LocateRegistry.getRegistry(skeleton.getAddress().getHostName());
+            return (T) registry.lookup(skeleton.getInterface().getName());
+        } catch (NotBoundException | RemoteException p_e) {
             throw new UnknownHostException();
         }
     }
@@ -98,9 +109,9 @@ public abstract class Stub {
             throw new Error();
         }
         try {
-            InetAddress l_address = InetAddress.getByName(hostname + ":" + skeleton.getAddress().getPort());
-            return (T) Naming.lookup(l_address.toString());
-        } catch (NotBoundException | MalformedURLException | RemoteException | UnknownHostException p_e) {
+            Registry registry = LocateRegistry.getRegistry(hostname);
+            return (T) registry.lookup(skeleton.getInterface().getName());
+        } catch (NotBoundException | RemoteException p_e) {
             throw new Error();
         }
     }
@@ -126,12 +137,21 @@ public abstract class Stub {
             throw new NullPointerException("Null parameter(s).");
         }
         // Checks if c represents a remote interface.
-        if (!c.isAssignableFrom(Remote.class)) {
+        if (!c.isInterface()) {
             throw new Error();
         }
+        // Checks if c represents a remote interface.
+        Method[] declaredMethods = c.getDeclaredMethods();
+        for (Method declaredMethod : declaredMethods) {
+            List<Class<?>> exceptionTypes = Arrays.asList(declaredMethod.getExceptionTypes());
+            if (!exceptionTypes.contains(RMIException.class)) {
+                throw new Error();
+            }
+        }
         try {
-            return (T) Naming.lookup(address.toString());
-        } catch (NotBoundException | MalformedURLException | RemoteException p_e) {
+            Registry registry = LocateRegistry.getRegistry(address.getAddress().getHostName());
+            return (T) registry.lookup(address.toString());
+        } catch (NotBoundException | RemoteException p_e) {
             throw new Error();
         }
     }

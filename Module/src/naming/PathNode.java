@@ -89,8 +89,9 @@ public class PathNode {
     }
 
     public void deleteChild(String component) throws UnsupportedOperationException {
-        if (!childNodes.containsKey(component))
+        if (!childNodes.containsKey(component)) {
             throw new UnsupportedOperationException("Unable to delete a non-existing node");
+        }
 
         childNodes.remove(component);
     }

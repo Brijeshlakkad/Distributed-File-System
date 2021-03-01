@@ -1,4 +1,2 @@
-/**
- * Conformance tests for the naming server.
- */
+/** Conformance tests for the naming server. */
 package conformance.naming;

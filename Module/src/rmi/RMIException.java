@@ -22,6 +22,6 @@ public class RMIException extends Exception {
      * Creates an <code>RMIException</code> from the given cause.
      */
     public RMIException(Throwable cause) {
-        super(cause);
+        super(String.valueOf(cause));
     }
 }
