@@ -1,14 +1,8 @@
 package rmi;
 
-import java.lang.reflect.Method;
+import java.io.IOException;
 import java.net.InetSocketAddress;
-import java.rmi.Remote;
-import java.rmi.RemoteException;
-import java.rmi.registry.LocateRegistry;
-import java.rmi.registry.Registry;
-import java.rmi.server.ExportException;
-import java.util.Arrays;
-import java.util.List;
+import java.net.ServerSocket;
 
 /**
  * RMI skeleton
@@ -31,13 +25,11 @@ import java.util.List;
  * or <code>service_error</code>.
  */
 public class Skeleton<T> {
-    private Class<T> c;
-    private T server;
-    private InetSocketAddress address;
-    private Registry registry;
-    private ProxyHandler<T> d_proxyHandler;
-    private T proxyClass;
-    private ListeningThread<Remote> d_listeningThread;
+    private Class<T> d_class;
+    private T d_server;
+    private InetSocketAddress d_address;
+    private SocketConnectionListener d_socketConnectionListener;
+    private volatile boolean isAlive;
 
     /**
      * Creates a <code>Skeleton</code> with no initial server address. The address will be determined by the system
@@ -67,17 +59,11 @@ public class Skeleton<T> {
             throw new Error();
         }
         // Checks if c represents a remote interface.
-        Method[] declaredMethods = c.getDeclaredMethods();
-        for (Method declaredMethod : declaredMethods) {
-            List<Class<?>> exceptionTypes = Arrays.asList(declaredMethod.getExceptionTypes());
-            if (!exceptionTypes.contains(RMIException.class)) {
-                throw new Error();
-            }
+        if (!SkeletonUtil.isAssignableFromRemote(c)) {
+            throw new Error();
         }
-        this.c = c;
-        this.server = server;
-        this.d_proxyHandler = new ProxyHandler<>();
-        this.proxyClass = this.d_proxyHandler.passthroughProxy(this.c, this.server);
+        this.d_class = c;
+        this.d_server = server;
     }
 
     /**
@@ -108,18 +94,12 @@ public class Skeleton<T> {
             throw new Error();
         }
         // Checks if c represents a remote interface.
-        Method[] declaredMethods = c.getDeclaredMethods();
-        for (Method declaredMethod : declaredMethods) {
-            List<Class<?>> exceptionTypes = Arrays.asList(declaredMethod.getExceptionTypes());
-            if (!exceptionTypes.contains(RMIException.class)) {
-                throw new Error();
-            }
+        if (!SkeletonUtil.isAssignableFromRemote(c)) {
+            throw new Error();
         }
-        this.c = c;
-        this.server = server;
-        this.address = address;
-        this.d_proxyHandler = new ProxyHandler<>();
-        this.proxyClass = this.d_proxyHandler.passthroughProxy(this.c, this.server);
+        this.d_class = c;
+        this.d_server = server;
+        this.d_address = address;
     }
 
     /**
@@ -182,30 +162,31 @@ public class Skeleton<T> {
      *                      created, or when the server has already been started and has not since stopped.
      */
     public synchronized void start() throws RMIException {
-        synchronized (this) {
-            try {
-                if (System.getSecurityManager() == null) {
-                    System.setSecurityManager(new SecurityManager());
-                }
-//            byte pattern = (byte) 0xAC;
-//            RMIClientSocketFactory csf = new XorClientSocketFactory(pattern);
-//            RMIServerSocketFactory ssf = new XorServerSocketFactory(pattern);
-                String name = this.c.getName();
-                int port = address != null ? address.getPort() : 0;
-                try {
-                    registry = LocateRegistry.createRegistry(port);
-                } catch (RemoteException p_e) {
-                    registry = LocateRegistry.getRegistry(port);
-                }
-                this.d_listeningThread = new ListeningThread<>(registry, (Remote) this.proxyClass, name, port);
-                this.d_listeningThread.start();
-//            Remote stub = UnicastRemoteObject.exportObject((Remote) this.c.cast(server), 0, csf, ssf);
-            } catch (ExportException p_ignoredExportException) {
-                // If the second time, the same object exported, this will likely to throw below exception
-                // <code>java.rmi.server.ExportException: object already exported</code>
-            } catch (RemoteException p_remoteException) {
-                throw new RMIException("Listening socket can not be created!");
+        if (isAlive) {
+            throw new RMIException("Server has already been started!");
+        }
+        this.isAlive = true;
+        try {
+            ServerSocket l_serverSocket = new ServerSocket(d_address != null ? d_address.getPort() : 0);
+
+            if (d_address == null) {
+                d_address = (InetSocketAddress) l_serverSocket.getLocalSocketAddress();
+            } else {
+                l_serverSocket.bind(d_address);
             }
+
+            d_socketConnectionListener = new SocketConnectionListener(l_serverSocket);
+            d_socketConnectionListener.start();
+
+            while (isAlive) {
+                try {
+                    wait();
+                } catch (InterruptedException p_e) {
+
+                }
+            }
+        } catch (IOException p_ioException) {
+            throw new RMIException("Can not create listening socket");
         }
     }
 
@@ -219,18 +200,10 @@ public class Skeleton<T> {
      * restarted.
      */
     public synchronized void stop() {
-        synchronized (this) {
-            try {
-                if (this.d_listeningThread != null)
-                    this.d_listeningThread.terminate();
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
-        }
     }
 
     public Class<?> getInterface() {
-        return this.c;
+        return this.d_class;
     }
 
     /**
@@ -239,6 +212,6 @@ public class Skeleton<T> {
      * @return Value of the address.
      */
     public InetSocketAddress getAddress() {
-        return address;
+        return d_address;
     }
 }

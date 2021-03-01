@@ -10,8 +10,8 @@ import java.util.stream.Stream;
  * @author Brijesh Lakkad
  * @version 1.0
  */
-public class ProxyHandler<T> {
-    public T simpleProxy(Class iface, InvocationHandler handler, Class... otherIfaces) {
+public class ClassProxyHandler<T> {
+    public T resolveProxyClass(Class iface, InvocationHandler handler, Class... otherIfaces) {
         Class[] allInterfaces = Stream.concat(
                 Stream.of(iface),
                 Stream.of(otherIfaces))
@@ -24,15 +24,15 @@ public class ProxyHandler<T> {
                 handler);
     }
 
-    public T passthroughProxy(Class iface, T target) {
-        return simpleProxy(iface, new PassthroughInvocationHandler(target), Remote.class);
+    public T passThroughProxy(Class iface, T target) {
+        return resolveProxyClass(iface, new PassThroughInvocationHandler(target), Remote.class);
     }
 }
 
-class PassthroughInvocationHandler implements InvocationHandler {
+class PassThroughInvocationHandler implements InvocationHandler {
     private final Object target;
 
-    public PassthroughInvocationHandler(Object target) {
+    public PassThroughInvocationHandler(Object target) {
         this.target = target;
     }
 
