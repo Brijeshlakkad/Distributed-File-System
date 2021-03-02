@@ -1,5 +1,7 @@
 package rmi;
 
+import rmi.utils.RemoteUtil;
+
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
@@ -51,19 +53,7 @@ public class Skeleton<T> {
      *                              <code>server</code> is <code>null</code>.
      */
     public Skeleton(Class<T> c, T server) {
-        if (c == null || server == null) {
-            throw new NullPointerException("Null parameter(s).");
-        }
-        // Checks if c represents a remote interface.
-        if (!c.isInterface()) {
-            throw new Error();
-        }
-        // Checks if c represents a remote interface.
-        if (!SkeletonUtil.isAssignableFromRemote(c)) {
-            throw new Error();
-        }
-        this.d_class = c;
-        this.d_server = server;
+        this.createSkeleton(c, server);
     }
 
     /**
@@ -86,7 +76,30 @@ public class Skeleton<T> {
      *                              <code>server</code> is <code>null</code>.
      */
     public Skeleton(Class<T> c, T server, InetSocketAddress address) {
-        if (c == null || server == null || address == null) {
+        this.d_address = address;
+        this.createSkeleton(c, server);
+    }
+
+    /**
+     * Initialises and validates the <code>Skeleton</code> data members.
+     * <p>
+     * If any invalid data member, throws an exception explaining the reason.
+     * </p>
+     * <p>
+     * Private method; This method should only be called from constructor.
+     *
+     * @param c      An object representing the class of the interface for which the skeleton server is to handle method
+     *               call requests.
+     * @param server An object implementing said interface. Requests for method calls are forwarded by the skeleton to
+     *               this object.
+     * @throws Error                If <code>c</code> does not represent a remote interface - an interface whose methods
+     *                              are all marked as throwing
+     *                              <code>RMIException</code>.
+     * @throws NullPointerException If either of <code>c</code> or
+     *                              <code>server</code> is <code>null</code>.
+     */
+    private void createSkeleton(Class<T> c, T server) throws Error, NullPointerException {
+        if (c == null || server == null) {
             throw new NullPointerException("Null parameter(s).");
         }
         // Checks if c represents a remote interface.
@@ -94,12 +107,11 @@ public class Skeleton<T> {
             throw new Error();
         }
         // Checks if c represents a remote interface.
-        if (!SkeletonUtil.isAssignableFromRemote(c)) {
+        if (!RemoteUtil.isAssignableFromRemote(c)) {
             throw new Error();
         }
         this.d_class = c;
         this.d_server = server;
-        this.d_address = address;
     }
 
     /**
@@ -136,7 +148,7 @@ public class Skeleton<T> {
      * connections, <code>false</code> if the server is to shut down.
      */
     protected boolean listen_error(Exception exception) {
-        return exception != null;
+        return false;
     }
 
     /**
@@ -167,24 +179,15 @@ public class Skeleton<T> {
         }
         this.isAlive = true;
         try {
+            // Prepare server socket here.
             ServerSocket l_serverSocket = new ServerSocket(d_address != null ? d_address.getPort() : 0);
 
             if (d_address == null) {
                 d_address = (InetSocketAddress) l_serverSocket.getLocalSocketAddress();
-            } else {
-                l_serverSocket.bind(d_address);
             }
 
-            d_socketConnectionListener = new SocketConnectionListener(l_serverSocket);
+            d_socketConnectionListener = new SocketConnectionListener(l_serverSocket, this);
             d_socketConnectionListener.start();
-
-            while (isAlive) {
-                try {
-                    wait();
-                } catch (InterruptedException p_e) {
-
-                }
-            }
         } catch (IOException p_ioException) {
             throw new RMIException("Can not create listening socket");
         }
@@ -200,6 +203,20 @@ public class Skeleton<T> {
      * restarted.
      */
     public synchronized void stop() {
+        // already stopped
+        if (!isAlive || !d_socketConnectionListener.isThreadAlive()) return;
+        // Terminate the listening thread
+        // This will interrupt the thread and will close the socket in finally block.
+        this.d_socketConnectionListener.terminate();
+        isAlive = false;
+    }
+
+    public T getTarget() {
+        return this.d_server;
+    }
+
+    public ClassLoader getClassLoader() {
+        return this.d_class.getClassLoader();
     }
 
     public Class<?> getInterface() {
@@ -211,7 +228,7 @@ public class Skeleton<T> {
      *
      * @return Value of the address.
      */
-    public InetSocketAddress getAddress() {
+    public synchronized InetSocketAddress getAddress() {
         return d_address;
     }
 }
