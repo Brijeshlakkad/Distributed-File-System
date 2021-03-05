@@ -28,29 +28,24 @@ class SocketConnectionListener implements Runnable {
     public void run() {
         // Sets the listen error handler. If exception not handled manually, ListenErrorHandler will handle it.
         Thread.setDefaultUncaughtExceptionHandler(new ListenErrorHandler(d_skeleton));
-        try {
-            // Thread responsive to interruption.
-            while (!Thread.currentThread().isInterrupted()) {
-                try {
-                    Socket clientSocket = d_serverSocket.accept();
-                    this.createClientHandler(clientSocket);
-                } catch (IOException p_ioException) {
-                    this.d_isListening = false;
-                    d_skeleton.listen_error(p_ioException);
-                }
-            }
-        } finally {
+
+        // Thread responsive to interruption.
+        while (!Thread.currentThread().isInterrupted()) {
             try {
-                d_serverSocket.close();
+                Socket clientSocket = d_serverSocket.accept();
+                this.createClientHandler(clientSocket);
             } catch (IOException p_ioException) {
-                d_skeleton.listen_error(p_ioException);
+                this.d_isListening = false;
+                if (d_skeleton.isAlive())
+                    d_skeleton.listen_error(p_ioException);
             }
-            // If server socket closed explicitly stop the server.
+            // If explicitly stopped the skeleton server.
             // If not done this, then the conformance test of SkeletonTest will fail because of time out.
-            synchronized (d_skeleton) {
+            // isAlive is synchronized method
+            if (!d_skeleton.isAlive()) {
                 d_skeleton.stopped(null);
+                break;
             }
-            this.d_isListening = false;
         }
     }
 
@@ -84,7 +79,17 @@ class SocketConnectionListener implements Runnable {
 //            } catch (InterruptedException l_ignored) {
 //            }
 //        }
+        if (!this.d_isListening) {
+            return;
+        }
         if (this.d_thread.isAlive())
             this.d_thread.interrupt();
+        try {
+            d_serverSocket.close();
+        } catch (IOException p_ioException) {
+        } finally {
+            d_skeleton.stopped(null);
+            this.d_isListening = false;
+        }
     }
 }

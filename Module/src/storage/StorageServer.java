@@ -22,7 +22,7 @@ public class StorageServer implements Storage, Command, Remote {
     private File d_root;
     private Skeleton<Storage> d_storageSkeleton;
     private Skeleton<Command> d_commandSkeleton;
-    private boolean alive = false;
+    private volatile boolean alive = false;
 
     /**
      * Creates a storage server, given a directory on the local filesystem.
@@ -38,7 +38,6 @@ public class StorageServer implements Storage, Command, Remote {
         d_root = root;
         d_storageSkeleton = new Skeleton<>(Storage.class, this);
         d_commandSkeleton = new Skeleton<>(Command.class, this);
-        alive = true;
     }
 
     /**
@@ -57,10 +56,14 @@ public class StorageServer implements Storage, Command, Remote {
      */
     public synchronized void start(String hostname, Registration naming_server)
             throws RMIException, UnknownHostException, FileNotFoundException {
-        if (!alive)
+        if (alive)
             throw new RMIException("Failed to start! Calling again may give the same result");
         if (!d_root.exists() || d_root.isFile()) {
             throw new FileNotFoundException("Root either doesn't exist or is a file.");
+        }
+
+        synchronized (this) {
+            alive = true;
         }
 
         // Validate the hostname.
@@ -73,9 +76,11 @@ public class StorageServer implements Storage, Command, Remote {
             Command l_commandStub = Stub.create(Command.class, d_commandSkeleton, hostname);
             Path[] duplicates = naming_server.register(l_storageStub, l_commandStub, Path.list(d_root));
 
-            // TODO PRUNE
+            pruneDuplicateFiles(duplicates);
         } catch (RMIException p_rmiException) {
-            alive = false;
+            synchronized (this) {
+                alive = false;
+            }
             throw new RMIException("Couldn't start naming server", p_rmiException);
         }
     }
@@ -87,7 +92,17 @@ public class StorageServer implements Storage, Command, Remote {
      * The server should not be restarted.
      */
     public void stop() {
-        throw new UnsupportedOperationException("not implemented");
+        try {
+            d_storageSkeleton.stop();
+            d_commandSkeleton.stop();
+            stopped(null);
+        } catch (Exception e) {
+            stopped(e);
+        } finally {
+            synchronized (this) {
+                alive = false;
+            }
+        }
     }
 
     /**
@@ -97,6 +112,12 @@ public class StorageServer implements Storage, Command, Remote {
      *              request.
      */
     protected void stopped(Throwable cause) {
+    }
+
+    private void pruneDuplicateFiles(Path[] duplicates) {
+        for (Path l_duplicateFilePath : duplicates) {
+            delete(l_duplicateFilePath);
+        }
     }
 
     // The following methods are documented in Storage.java.
@@ -166,7 +187,26 @@ public class StorageServer implements Storage, Command, Remote {
         if (path == null) {
             throw new NullPointerException("Null parameter(s) found!");
         }
-        File l_file = path.toFile(this.d_root);
-        return l_file.delete();
+        File l_fileToBeDeleted = new File(this.d_root, path.toString());
+        l_fileToBeDeleted.delete();
+        try {
+            return deleteIfEmptyFolder(path.parent());
+        } catch (IllegalArgumentException p_e) {
+            return true;
+        }
+    }
+
+    private synchronized boolean deleteIfEmptyFolder(Path p_path) {
+        try {
+            File l_fileToBeDeleted = new File(this.d_root, p_path.toString());
+            if (l_fileToBeDeleted.isDirectory() && l_fileToBeDeleted.listFiles() != null
+                    && l_fileToBeDeleted.listFiles().length == 0) {
+                l_fileToBeDeleted.delete();
+                return deleteIfEmptyFolder(p_path.parent());
+            } else return !l_fileToBeDeleted.isDirectory() || l_fileToBeDeleted.listFiles() == null
+                    || l_fileToBeDeleted.listFiles().length <= 0;
+        } catch (IllegalArgumentException p_e) {
+            return true;
+        }
     }
 }

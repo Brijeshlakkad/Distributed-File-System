@@ -36,8 +36,8 @@ public class NamingServer implements Service, Registration {
     private PathNode root;
     private Skeleton<Registration> d_registrationSkeleton;
     private Skeleton<Service> d_serviceSkeleton;
-    private List<ServerStubs> d_registeredServerStubs;
-    private volatile boolean alive;
+    private final List<ServerStubs> d_registeredServerStubs;
+    private volatile boolean alive = false;
 
     /**
      * Creates the naming server object.
@@ -49,7 +49,6 @@ public class NamingServer implements Service, Registration {
         this.root = new PathNode(new Path(), null);
         this.d_registrationSkeleton = new Skeleton<>(Registration.class, this, new InetSocketAddress(NamingStubs.REGISTRATION_PORT));
         this.d_serviceSkeleton = new Skeleton<>(Service.class, this, new InetSocketAddress(NamingStubs.SERVICE_PORT));
-        this.alive = true;
         d_registeredServerStubs = new ArrayList<>();
     }
 
@@ -64,15 +63,18 @@ public class NamingServer implements Service, Registration {
      *                      be started. The user should not attempt to start the server again if an exception occurs.
      */
     public synchronized void start() throws RMIException {
-        if (!alive)
+        if (alive)
             throw new RMIException("Failed to start! Calling again may give the same result");
+        synchronized (this) {
+            this.alive = true;
+        }
         try {
-//            System.setProperty("java.rmi.server.hostname", "192.168.1.2");
-
             d_registrationSkeleton.start();
             d_serviceSkeleton.start();
         } catch (RMIException p_rmiException) {
-            alive = false;
+            synchronized (this) {
+                alive = false;
+            }
             throw new RMIException("Couldn't start naming server", p_rmiException);
         }
     }
@@ -92,9 +94,10 @@ public class NamingServer implements Service, Registration {
             stopped(null);
         } catch (Exception e) {
             stopped(e);
-            e.printStackTrace();
         } finally {
-            alive = false;
+            synchronized (this) {
+                alive = false;
+            }
         }
     }
 
@@ -209,10 +212,13 @@ public class NamingServer implements Service, Registration {
         PathNode l_currentPathNode;
         ArrayList<Path> l_duplicates = new ArrayList<>();
         ServerStubs l_serverStubs = new ServerStubs(client_stub, command_stub);
-        if (d_registeredServerStubs.contains(l_serverStubs)) {
-            throw new IllegalStateException("Storage server has been already registered.");
+
+        synchronized (d_registeredServerStubs) {
+            if (d_registeredServerStubs.contains(l_serverStubs)) {
+                throw new IllegalStateException("Storage server has been already registered.");
+            }
+            d_registeredServerStubs.add(l_serverStubs);
         }
-        d_registeredServerStubs.add(l_serverStubs);
 
         for (Path l_path : files) {
             l_currentPathNode = this.root;

@@ -5,6 +5,7 @@ import rmi.utils.RemoteUtil;
 
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
+import java.io.Serializable;
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
@@ -13,12 +14,17 @@ import java.net.Socket;
 import java.util.Objects;
 
 /**
+ * <p>
+ * If this class not implemented as
+ * <code>Serializable</code>, JVM will throw java.io.NotSerializableException when writing on
+ * <code>ObjectOutputStream</code>.
+ * <p>
  * https://docs.oracle.com/javase/8/docs/api/java/io/ObjectInputStream.html
  *
  * @author Brijesh Lakkad
  * @version 1.0
  */
-public class RemoteProxyHandler implements InvocationHandler {
+public class RemoteProxyHandler implements InvocationHandler, Serializable {
     private final Class<?> d_class;
     private final InetSocketAddress d_address;
 

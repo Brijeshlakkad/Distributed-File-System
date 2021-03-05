@@ -204,11 +204,16 @@ public class Skeleton<T> {
      */
     public synchronized void stop() {
         // If already stopped or was not started
-        if (!isAlive || d_socketConnectionListener == null || !d_socketConnectionListener.isThreadAlive()) return;
+        if (!isAlive || d_socketConnectionListener == null)
+            return;
         // Terminate the listening thread
         // This will interrupt the thread and will close the socket in finally block.
         this.d_socketConnectionListener.terminate();
         isAlive = false;
+    }
+
+    public synchronized boolean isAlive(){
+        return isAlive;
     }
 
     public T getTarget() {
