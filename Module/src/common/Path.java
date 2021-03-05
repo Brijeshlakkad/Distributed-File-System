@@ -219,14 +219,7 @@ public class Path implements Iterable<String>, Serializable {
      * @return The <code>File</code> object.
      */
     public File toFile(File root) {
-        // URI of the root.
-        URI rootURI = root.toURI();
-        // URI of this path.
-        URI thisURI = URI.create(this.toString());
-
-        // Relative path to root using this path.
-        URI relativePath = rootURI.relativize(thisURI);
-        return new File(relativePath);
+        return new File(root.toURI().relativize(new File(this.toString()).toURI()).toString());
     }
 
     /**
