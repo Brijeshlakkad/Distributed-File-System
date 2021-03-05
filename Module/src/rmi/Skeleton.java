@@ -203,8 +203,8 @@ public class Skeleton<T> {
      * restarted.
      */
     public synchronized void stop() {
-        // already stopped
-        if (!isAlive || !d_socketConnectionListener.isThreadAlive()) return;
+        // If already stopped or was not started
+        if (!isAlive || d_socketConnectionListener == null || !d_socketConnectionListener.isThreadAlive()) return;
         // Terminate the listening thread
         // This will interrupt the thread and will close the socket in finally block.
         this.d_socketConnectionListener.terminate();
