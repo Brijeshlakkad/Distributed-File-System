@@ -26,11 +26,15 @@ class SocketClientHandler implements Runnable {
         // Sets the service error handler. If exception not handled manually, ServiceErrorHandler will handle it.
         Thread.setDefaultUncaughtExceptionHandler(new ServiceErrorHandler(d_skeleton, d_clientSocket));
         try {
-            ObjectOutputStream l_objectOutputStream = new ObjectOutputStream(d_clientSocket.getOutputStream());
             LocalProxyHandler<Object> l_localProxyHandler =
-                    new LocalProxyHandler<>(d_skeleton.getTarget(), d_skeleton.getClassLoader(), d_clientSocket.getInputStream());
+                    new LocalProxyHandler<>(d_skeleton.getTarget(), d_skeleton.getRepresentativeClass(), d_clientSocket.getInputStream());
+
+            // Get output stream to unmarshal message
+            ObjectOutputStream l_objectOutputStream = new ObjectOutputStream(d_clientSocket.getOutputStream());
+            l_objectOutputStream.flush();
+
             try {
-                Object returnObject = l_localProxyHandler.handleInvocation();
+                Object returnObject = l_localProxyHandler.invoke();
                 if (returnObject != null) {
                     l_objectOutputStream.writeObject(ResponseStatus.Ok);
                     l_objectOutputStream.writeObject(returnObject);

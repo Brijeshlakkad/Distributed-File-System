@@ -4,11 +4,8 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.ObjectInputStream;
 import java.io.StreamCorruptedException;
-import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
-import java.lang.reflect.Proxy;
-import java.util.stream.Stream;
 
 /**
  * https://docs.oracle.com/javase/8/docs/api/java/io/ObjectInputStream.html
@@ -16,8 +13,8 @@ import java.util.stream.Stream;
  * @author Brijesh Lakkad
  * @version 1.0
  */
-public class LocalProxyHandler<T> extends ObjectInputStream implements InvocationHandler {
-    private final ClassLoader d_classLoader;
+public class LocalProxyHandler<T> extends ObjectInputStream {
+    private final Class<?> d_class;
     private final T d_target;
 
     /**
@@ -27,41 +24,27 @@ public class LocalProxyHandler<T> extends ObjectInputStream implements Invocatio
      * @throws IOException              In case of an I/O error
      * @throws StreamCorruptedException If the stream is corrupted
      */
-    public LocalProxyHandler(T p_Target, ClassLoader p_classLoader, InputStream p_inputStream) throws IOException {
+    public LocalProxyHandler(T p_Target, Class<?> p_class, InputStream p_inputStream) throws IOException {
         super(p_inputStream);
         d_target = p_Target;
-        d_classLoader = p_classLoader;
+        d_class = p_class;
     }
 
-    private Class<?> resolveProxyClass(Class... itsInterfaces) {
-        Class[] allInterfaces = Stream.concat(
-                Stream.of(d_classLoader),
-                Stream.of(itsInterfaces))
-                .distinct()
-                .toArray(Class[]::new);
+    public Object invoke() throws IOException, ClassNotFoundException, NoSuchMethodException, InvocationTargetException, IllegalAccessException {
+        // * Invoke method on local object
 
-        return (Class<?>) Proxy.newProxyInstance(
-                d_classLoader,
-                allInterfaces,
-                this);
-    }
-
-    public Object handleInvocation() throws IOException, ClassNotFoundException, InvocationTargetException, IllegalAccessException, NoSuchMethodException {
-        // get method name
+        // 1. Unmarshal the data
+        // 1.1 Get the method name
         String l_methodName = (String) this.readObject();
-        // get parameter types
+        // 1.2 Get the parameter types to locate the specified method
         Class<?>[] l_paramTypeList = (Class<?>[]) this.readObject();
-
+        // 1.3 Get the arguments to be passed to method call.
         Object[] l_argumentList = (Object[]) this.readObject();
 
-        Class<?> l_tClass = resolveProxyClass();
         // Find method with valid and existing signature.
-        Method method = l_tClass.getMethod(l_methodName, l_paramTypeList);
-        return method.invoke(d_target, l_argumentList);
-    }
+        Method method = d_class.getMethod(l_methodName, l_paramTypeList);
 
-    @Override
-    public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
-        return method.invoke(d_target, args);
+        // Invoke the method and return the results.
+        return method.invoke(d_target, l_argumentList);
     }
 }

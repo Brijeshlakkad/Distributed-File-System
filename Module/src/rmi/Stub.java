@@ -1,15 +1,10 @@
 package rmi;
 
-import java.lang.reflect.Method;
+import rmi.utils.RemoteUtil;
+
+import java.lang.reflect.Proxy;
 import java.net.InetSocketAddress;
 import java.net.UnknownHostException;
-import java.rmi.NotBoundException;
-import java.rmi.Remote;
-import java.rmi.RemoteException;
-import java.rmi.registry.LocateRegistry;
-import java.rmi.registry.Registry;
-import java.util.Arrays;
-import java.util.List;
 
 /**
  * RMI stub factory.
@@ -50,27 +45,13 @@ public abstract class Stub {
      */
     public static <T> T create(Class<T> c, Skeleton<T> skeleton)
             throws UnknownHostException {
-        if (c == null || skeleton == null) {
+        if (skeleton == null) {
             throw new NullPointerException("Null parameter(s).");
         }
-        // Checks if c represents a remote interface.
-        if (!c.isInterface()) {
-            throw new Error();
+        if (skeleton.getAddress() == null || skeleton.getAddress().getPort() == 0) {
+            throw new IllegalStateException("Skeleton has not been assigned a port");
         }
-        // Checks if c represents a remote interface.
-        Method[] declaredMethods = c.getDeclaredMethods();
-        for (Method declaredMethod : declaredMethods) {
-            List<Class<?>> exceptionTypes = Arrays.asList(declaredMethod.getExceptionTypes());
-            if (!exceptionTypes.contains(RMIException.class)) {
-                throw new Error();
-            }
-        }
-        try {
-            Registry registry = LocateRegistry.getRegistry(skeleton.getAddress().getHostName());
-            return (T) registry.lookup(skeleton.getInterface().getName());
-        } catch (NotBoundException | RemoteException p_e) {
-            throw new UnknownHostException();
-        }
+        return Stub.create(c, skeleton.getAddress());
     }
 
     /**
@@ -101,19 +82,14 @@ public abstract class Stub {
      */
     public static <T> T create(Class<T> c, Skeleton<T> skeleton,
                                String hostname) {
-        if (c == null || skeleton == null || hostname == null) {
+        if (skeleton == null || hostname == null || hostname.isEmpty()) {
             throw new NullPointerException("Null parameter(s).");
         }
-        // Checks if c represents a remote interface.
-        if (!c.isAssignableFrom(Remote.class)) {
-            throw new Error();
+        if (skeleton.getAddress() == null || skeleton.getAddress().getPort() == 0) {
+            throw new IllegalStateException("Skeleton has not been assigned a port");
         }
-        try {
-            Registry registry = LocateRegistry.getRegistry(hostname);
-            return (T) registry.lookup(skeleton.getInterface().getName());
-        } catch (NotBoundException | RemoteException p_e) {
-            throw new Error();
-        }
+        InetSocketAddress l_remoteSocketAddress = new InetSocketAddress(hostname, skeleton.getAddress().getPort());
+        return Stub.create(c, l_remoteSocketAddress);
     }
 
     /**
@@ -141,18 +117,9 @@ public abstract class Stub {
             throw new Error();
         }
         // Checks if c represents a remote interface.
-        Method[] declaredMethods = c.getDeclaredMethods();
-        for (Method declaredMethod : declaredMethods) {
-            List<Class<?>> exceptionTypes = Arrays.asList(declaredMethod.getExceptionTypes());
-            if (!exceptionTypes.contains(RMIException.class)) {
-                throw new Error();
-            }
-        }
-        try {
-            Registry registry = LocateRegistry.getRegistry(address.getAddress().getHostName());
-            return (T) registry.lookup(address.toString());
-        } catch (NotBoundException | RemoteException p_e) {
+        if (!RemoteUtil.isAssignableFromRemote(c)) {
             throw new Error();
         }
+        return (T) Proxy.newProxyInstance(c.getClassLoader(), new Class<?>[]{c}, new RemoteProxyHandler(c, address));
     }
 }

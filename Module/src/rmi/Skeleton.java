@@ -215,8 +215,8 @@ public class Skeleton<T> {
         return this.d_server;
     }
 
-    public ClassLoader getClassLoader() {
-        return this.d_class.getClassLoader();
+    public Class<?> getRepresentativeClass() {
+        return this.d_class;
     }
 
     public Class<?> getInterface() {

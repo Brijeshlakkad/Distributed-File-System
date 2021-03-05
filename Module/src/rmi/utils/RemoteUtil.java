@@ -22,7 +22,7 @@ public class RemoteUtil {
         return true;
     }
 
-    private static boolean isRemoteMethod(Class<?> c, Method method) {
+    public static boolean isRemoteMethod(Class<?> c, Method method) {
         for (Method m : c.getMethods()) {
             if (m.equals(method)) {
                 return true;
