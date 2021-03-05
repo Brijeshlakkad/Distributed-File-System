@@ -29,38 +29,40 @@ class SocketClientHandler implements Runnable {
             LocalProxyHandler<Object> l_localProxyHandler =
                     new LocalProxyHandler<>(d_skeleton.getTarget(), d_skeleton.getRepresentativeClass(), d_clientSocket.getInputStream());
 
-            // Get output stream to unmarshal message
-            ObjectOutputStream l_objectOutputStream = new ObjectOutputStream(d_clientSocket.getOutputStream());
-            l_objectOutputStream.flush();
-
             try {
                 Object returnObject = l_localProxyHandler.invoke();
-                if (returnObject != null) {
-                    l_objectOutputStream.writeObject(ResponseStatus.Ok);
-                    l_objectOutputStream.writeObject(returnObject);
-                }
+                send(ResponseStatus.Ok, returnObject);
             } catch (ClassNotFoundException p_e) {
-                l_objectOutputStream.writeObject(ResponseStatus.InternalServerErrorException);
-                l_objectOutputStream.writeObject(p_e.getCause());
+                send(ResponseStatus.InternalServerErrorException, p_e.getCause());
             } catch (InvocationTargetException p_e) {
                 // When the called method throws an exception
-                l_objectOutputStream.writeObject(ResponseStatus.BadRequestException);
-                l_objectOutputStream.writeObject(p_e.getCause());
+                send(ResponseStatus.BadRequestException, p_e.getCause());
             } catch (IllegalAccessException p_e) {
-                l_objectOutputStream.writeObject(ResponseStatus.UnauthorizedException);
-                l_objectOutputStream.writeObject(p_e.getCause());
+                send(ResponseStatus.UnauthorizedException, p_e.getCause());
             } catch (NoSuchMethodException p_e) {
-                l_objectOutputStream.writeObject(ResponseStatus.NotFoundException);
-                l_objectOutputStream.writeObject(p_e.getCause());
+                send(ResponseStatus.NotFoundException, p_e.getCause());
             }
         } catch (IOException p_ioException) {
-            this.d_skeleton.service_error(new RMIException(p_ioException.getMessage()));
+            this.d_skeleton.service_error(new RMIException(p_ioException));
         } finally {
             try {
                 d_clientSocket.close();
             } catch (IOException p_ioException) {
                 this.d_skeleton.service_error(new RMIException(p_ioException.getCause()));
             }
+        }
+    }
+
+    public void send(ResponseStatus p_responseStatus, Object returnValue) {
+        // Get output stream to unmarshal message
+        ObjectOutputStream l_objectOutputStream;
+        try {
+            l_objectOutputStream = new ObjectOutputStream(d_clientSocket.getOutputStream());
+            l_objectOutputStream.flush();
+            l_objectOutputStream.writeObject(p_responseStatus);
+            l_objectOutputStream.writeObject(returnValue);
+        } catch (IOException p_ioException) {
+            this.d_skeleton.service_error(new RMIException(p_ioException));
         }
     }
 

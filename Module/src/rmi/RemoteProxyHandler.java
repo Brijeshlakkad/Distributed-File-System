@@ -39,36 +39,42 @@ public class RemoteProxyHandler implements InvocationHandler {
             return p_method.invoke(this, p_argumentList);
         } else if (RemoteUtil.isRemoteMethod(d_class, p_method)) {
             try (Socket l_clientSocket = new Socket(d_address.getAddress(), d_address.getPort())) {
+                /* Remote Method Invocation steps
+                /* If the call cannot be complete due to a network error, this block should throw RMIException.
+                 */
+                try {
+                    ObjectOutputStream outputStream = new ObjectOutputStream(l_clientSocket.getOutputStream());
+                    // 1 Flush the stream
+                    outputStream.flush();
 
-                // * Remote Method Invocation steps
-
-                ObjectOutputStream outputStream = new ObjectOutputStream(l_clientSocket.getOutputStream());
-                // 1 Flush the stream
-                outputStream.flush();
-
-                // 2 Get the subroutine data and marshals the data
-                // 2.1 Method name to invoke
-                outputStream.writeObject(p_method.getName());
-                // 2.1 Signature of the method
-                outputStream.writeObject(p_method.getParameterTypes());
-                // 2.3 Parameters to pass
-                outputStream.writeObject(p_argumentList);
-
-                // 3 Read the received data
-                ObjectInputStream inputStream = new ObjectInputStream(l_clientSocket.getInputStream());
-
-                // 3.1 Unmarshal the data and check the response status
-                ResponseStatus l_responseStatus = (ResponseStatus) inputStream.readObject();
-                // 3.2 Return value if the response status value is 200.
-                Object responseObject = inputStream.readObject();
-
-                if (l_responseStatus == ResponseStatus.Ok) {
-                    return responseObject;
-                } else {
-                    throw (Throwable) responseObject;
+                    // 2 Get the subroutine data and marshals the data
+                    // 2.1 Method name to invoke
+                    outputStream.writeObject(p_method.getName());
+                    // 2.1 Signature of the method
+                    outputStream.writeObject(p_method.getParameterTypes());
+                    // 2.3 Parameters to pass
+                    outputStream.writeObject(p_argumentList);
+                } catch (Exception e) {
+                    throw new RMIException(e);
                 }
-            } catch (Exception e) {
-                throw new RMIException(e);
+                if (p_method.getReturnType() != void.class) {
+                    // 3 Read the received data
+                    ObjectInputStream inputStream = new ObjectInputStream(l_clientSocket.getInputStream());
+
+                    // 3.1 Unmarshal the data and check the response status
+                    ResponseStatus l_responseStatus = (ResponseStatus) inputStream.readObject();
+
+                    // 3.2 Return value if the response status value is 200.
+                    Object responseObject = inputStream.readObject();
+
+                    if (l_responseStatus == ResponseStatus.Ok) {
+                        return responseObject;
+                    } else {
+                        throw (Throwable) responseObject;
+                    }
+                } else {
+                    return null;
+                }
             }
             // close the client socket
         } else {
