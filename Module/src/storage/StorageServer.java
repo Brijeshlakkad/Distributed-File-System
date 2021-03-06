@@ -6,9 +6,13 @@ import rmi.RMIException;
 import rmi.Skeleton;
 import rmi.Stub;
 
-import java.io.*;
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.io.RandomAccessFile;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
+import java.nio.file.Files;
 import java.rmi.Remote;
 
 /**
@@ -19,9 +23,9 @@ import java.rmi.Remote;
  * accessible under a given directory of the local filesystem.
  */
 public class StorageServer implements Storage, Command, Remote {
-    private File d_root;
-    private Skeleton<Storage> d_storageSkeleton;
-    private Skeleton<Command> d_commandSkeleton;
+    private final File d_root;
+    private final Skeleton<Storage> d_storageSkeleton;
+    private final Skeleton<Command> d_commandSkeleton;
     private volatile boolean alive = false;
 
     /**
@@ -122,91 +126,185 @@ public class StorageServer implements Storage, Command, Remote {
 
     // The following methods are documented in Storage.java.
     @Override
-    public synchronized long size(Path file) throws FileNotFoundException {
-        if (file == null) {
-            throw new NullPointerException("Null parameter(s) found!");
+    public synchronized long size(Path p_path) throws FileNotFoundException {
+        File requiredFile = new File(this.d_root, p_path.toString());
+        if (requiredFile.isDirectory() || !requiredFile.exists()) {
+            throw new FileNotFoundException("File is either a directory or File not found");
         }
-        File l_file = file.toFile(this.d_root);
-        if (!l_file.exists() || !l_file.isFile()) {
-            throw new FileNotFoundException("File not found!");
-        }
-        return l_file.length();
+        // size not function like that.
+        return requiredFile.length();
     }
 
     @Override
-    public synchronized byte[] read(Path file, long offset, int length)
+    public synchronized byte[] read(Path p_path, long p_offset, int p_length)
             throws FileNotFoundException, IOException {
-        if (file == null) {
-            throw new NullPointerException("Null parameter(s) found!");
+        // Retrieve the file.
+        File l_requiredFile = retrieveFileForReadOrWrite(p_path);
+
+        // If it can be read or not.
+        if (!l_requiredFile.canRead()) {
+            throw new IOException("Permission Error: File can not be read!");
         }
-        File l_file = file.toFile(this.d_root);
-        if (!l_file.exists() || !l_file.isFile()) {
-            throw new FileNotFoundException("File not found!");
+
+        // If improper data provided for offset or length.
+        if (p_offset < 0 || p_length < 0) {
+            throw new IndexOutOfBoundsException("Invalid parameters.");
         }
-        // Instantiate array
-        byte[] l_bytes = new byte[(int) l_file.length()];
-        try (FileInputStream l_inputStream = new FileInputStream(l_file)) {
-            // Read all bytes of File stream
-            l_inputStream.read(l_bytes, (int) offset, length);
+
+        // If the file length is less than asked to read for.
+        if ((p_offset + p_length) > l_requiredFile.length()) {
+            throw new IndexOutOfBoundsException("Invalid the offset or length!");
         }
-        return l_bytes;
+
+        /* Two ways to set offset and read the file content:
+        1. RandomAccessFile
+        2. FileInputStream.getChannel().position(int) method
+         */
+        RandomAccessFile l_randomAccessFile = new RandomAccessFile(l_requiredFile, "r");
+        byte[] l_data = new byte[p_length];
+
+        // Read the file content with in specified range.
+        l_randomAccessFile.seek(p_offset);
+        l_randomAccessFile.readFully(l_data, 0, p_length);
+        return l_data;
     }
 
     @Override
-    public synchronized void write(Path file, long offset, byte[] data)
+    public synchronized void write(Path p_path, long p_offset, byte[] p_data)
             throws FileNotFoundException, IOException {
-        if (file == null) {
-            throw new NullPointerException("Null parameter(s) found!");
+        if (p_data == null) {
+            throw new NullPointerException("Invalid parameters.");
         }
-        File l_file = file.toFile(this.d_root);
-        if (!l_file.exists() || !l_file.isFile()) {
-            throw new FileNotFoundException("File not found!");
+
+        if (p_offset < 0) {
+            throw new IndexOutOfBoundsException("Offset given negative");
         }
-        long l_lengthOfFile = l_file.length() + data.length;
-        try (FileOutputStream l_outputStream = new FileOutputStream(l_file)) {
-            l_outputStream.write(data, (int) offset, (int) l_lengthOfFile);
+
+        // Retrieve the file.
+        File l_requiredFile = retrieveFileForReadOrWrite(p_path);
+
+        // If data can be written into it.
+        if (!l_requiredFile.canWrite()) {
+            throw new IOException("File is not given a write access");
         }
+
+        RandomAccessFile l_randomAccessFile = new RandomAccessFile(l_requiredFile, "rw");
+
+        // Write into the file setting the offset.
+        l_randomAccessFile.seek(p_offset);
+        l_randomAccessFile.write(p_data);
+    }
+
+    /**
+     * Retrieves the file after validating the file path and returns the file before checking that file doesn't
+     * represent directory and it exists.
+     *
+     * @param p_path Value of the file path.
+     * @return Value of <code>File</code> object.
+     * @throws FileNotFoundException If file represents a directory or can not be found.
+     * @throws NullPointerException  If file path is null.
+     */
+    private File retrieveFileForReadOrWrite(Path p_path) throws FileNotFoundException, NullPointerException {
+        if (p_path == null) {
+            throw new NullPointerException("File path is null!");
+        }
+        // Fetch the file.
+        File l_requiredFile = new File(this.d_root, p_path.toString());
+
+        // If it exists or is a file or not.
+        if (!l_requiredFile.exists() || l_requiredFile.isDirectory()) {
+            throw new FileNotFoundException("Input either a directory or File not found!");
+        }
+
+        return l_requiredFile;
     }
 
     // The following methods are documented in Command.java.
     @Override
-    public synchronized boolean create(Path file) {
-        if (file == null) {
-            throw new NullPointerException("Null parameter(s) found!");
+    public synchronized boolean create(Path p_path) {
+        // Check if the file is root directory.
+        if (p_path.isRoot()) {
+            return false;
         }
-        File l_file = file.toFile(this.d_root);
+        // Fetch the file object.
+        File l_requiredFile = new File(this.d_root, p_path.toString());
+
+        // If parent directories don't exist, create them.
+        File l_parentDirectory = l_requiredFile.getParentFile();
+        l_parentDirectory.mkdirs();
+
         try {
-            return l_file.createNewFile();
-        } catch (IOException p_ioException) {
+            // Create a new file
+            return l_requiredFile.createNewFile();
+        } catch (IOException e) {
             return false;
         }
     }
 
     @Override
-    public synchronized boolean delete(Path path) {
-        if (path == null) {
-            throw new NullPointerException("Null parameter(s) found!");
+    public synchronized boolean delete(Path p_path) {
+        if (p_path == null) {
+            throw new NullPointerException("Null parameter(s)!");
         }
-        File l_fileToBeDeleted = new File(this.d_root, path.toString());
-        l_fileToBeDeleted.delete();
+        if (p_path.isRoot()) {
+            return false;
+        }
+        // Fetch the file object to be deleted.
+        File l_fileToBeDeleted = new File(this.d_root, p_path.toString());
+
+        boolean l_hasFileDeleted = false;
         try {
-            return deleteIfEmptyFolder(path.parent());
+            try {
+                if (l_fileToBeDeleted.isDirectory()) {
+                    long deleted = deleteIfDirectory(l_fileToBeDeleted);
+                    long expectedDeletionCount = (l_fileToBeDeleted.listFiles() == null || l_fileToBeDeleted.listFiles().length <= 0) ? 1 : l_fileToBeDeleted.listFiles().length + 1;
+                    // if the directory doesn't exist, l_hasFileDeleted will be set to true.
+                    l_hasFileDeleted = deleted == expectedDeletionCount;
+                } else {
+                    Files.delete(l_fileToBeDeleted.toPath());
+                }
+                l_hasFileDeleted = !l_fileToBeDeleted.exists();
+            } catch (IOException p_ioException) {
+                return false;
+            }
+            // Can be used a thread for this as it may take a unexpected amount of time for huge collections of directories?
+            deleteIfEmptyFolder(p_path.parent());
+            return l_hasFileDeleted;
         } catch (IllegalArgumentException p_e) {
-            return true;
+            return l_hasFileDeleted;
         }
     }
 
-    private synchronized boolean deleteIfEmptyFolder(Path p_path) {
+    private long deleteIfDirectory(File file) {
+        long deleted = 0;
+        File[] list = file.listFiles();
+        if (list != null && list.length > 0) {
+            for (File temp : list) {
+                // Recursive delete approach
+                deleted += deleteIfDirectory(temp);
+            }
+        }
+
+        try {
+            Files.delete(file.toPath());
+            return deleted + 1;
+        } catch (IOException p_ioException) {
+        }
+        return deleted;
+    }
+
+    private synchronized void deleteIfEmptyFolder(Path p_path) {
+        if (p_path.isRoot()) {
+            return;
+        }
         try {
             File l_fileToBeDeleted = new File(this.d_root, p_path.toString());
             if (l_fileToBeDeleted.isDirectory() && l_fileToBeDeleted.listFiles() != null
                     && l_fileToBeDeleted.listFiles().length == 0) {
-                l_fileToBeDeleted.delete();
-                return deleteIfEmptyFolder(p_path.parent());
-            } else return !l_fileToBeDeleted.isDirectory() || l_fileToBeDeleted.listFiles() == null
-                    || l_fileToBeDeleted.listFiles().length <= 0;
+                if (l_fileToBeDeleted.delete())
+                    deleteIfEmptyFolder(p_path.parent());
+            }
         } catch (IllegalArgumentException p_e) {
-            return true;
         }
     }
 }

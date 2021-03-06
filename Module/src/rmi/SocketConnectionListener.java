@@ -6,6 +6,10 @@ import java.net.Socket;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * Thread to handle a request for a new connection. This thread will create child threads for every new connection. It
+ * also manages the child threads.
+ */
 class SocketConnectionListener implements Runnable {
     private final Skeleton<?> d_skeleton;
     private final Thread d_thread;
@@ -13,6 +17,13 @@ class SocketConnectionListener implements Runnable {
     private final ServerSocket d_serverSocket;
     private final List<SocketClientHandler> d_socketClientHandlers;
 
+    /**
+     * Creates a <code>SocketConnectionListener</code> and initialises the thread for this class implementing
+     * <code>Runnable</code> interface.
+     *
+     * @param p_serverSocket Server socket.
+     * @param p_skeleton     Skeleton which had the target (local) object.
+     */
     public SocketConnectionListener(ServerSocket p_serverSocket, Skeleton<?> p_skeleton) {
         d_thread = new Thread(this);
         d_serverSocket = p_serverSocket;
@@ -20,6 +31,9 @@ class SocketConnectionListener implements Runnable {
         d_skeleton = p_skeleton;
     }
 
+    /**
+     * Starts the thread.
+     */
     public void start() {
         d_isListening = true;
         d_thread.start();
@@ -49,12 +63,22 @@ class SocketConnectionListener implements Runnable {
         }
     }
 
+    /**
+     * Creates and starts a thread representing the client's new connection.
+     *
+     * @param clientSocket Client socket.
+     */
     private void createClientHandler(Socket clientSocket) {
         SocketClientHandler l_clientHandler = new SocketClientHandler(clientSocket, d_skeleton);
         l_clientHandler.start();
         d_socketClientHandlers.add(l_clientHandler);
     }
 
+    /**
+     * Gets the thread representing this implementing class of <code>Runnable</code> interface.
+     *
+     * @return Value of the thread.
+     */
     public Thread getThread() {
         return this.d_thread;
     }

@@ -10,6 +10,7 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.net.InetSocketAddress;
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 
 /**
@@ -33,9 +34,9 @@ import java.util.List;
  * <code>NamingStubs</code>.
  */
 public class NamingServer implements Service, Registration {
-    private PathNode root;
-    private Skeleton<Registration> d_registrationSkeleton;
-    private Skeleton<Service> d_serviceSkeleton;
+    private final PathNode d_root;
+    private final Skeleton<Registration> d_registrationSkeleton;
+    private final Skeleton<Service> d_serviceSkeleton;
     private final List<ServerStubs> d_registeredServerStubs;
     private volatile boolean alive = false;
 
@@ -46,7 +47,7 @@ public class NamingServer implements Service, Registration {
      * The naming server is not started.
      */
     public NamingServer() {
-        this.root = new PathNode(new Path(), null);
+        this.d_root = new PathNode(new Path(), null);
         this.d_registrationSkeleton = new Skeleton<>(Registration.class, this, new InetSocketAddress(NamingStubs.REGISTRATION_PORT));
         this.d_serviceSkeleton = new Skeleton<>(Service.class, this, new InetSocketAddress(NamingStubs.SERVICE_PORT));
         d_registeredServerStubs = new ArrayList<>();
@@ -136,7 +137,7 @@ public class NamingServer implements Service, Registration {
         if (file == null) {
             throw new NullPointerException("File is null parameter.");
         }
-        PathNode l_currentPathNode = this.root;
+        PathNode l_currentPathNode = this.d_root;
 
         for (String component : file) {
             if (component.equals(file.last())) {
@@ -158,7 +159,7 @@ public class NamingServer implements Service, Registration {
         if (directory == null) {
             throw new NullPointerException("File is null parameter.");
         }
-        PathNode l_currentPathNode = this.root;
+        PathNode l_currentPathNode = this.d_root;
 
         for (String component : directory) {
             if (component.equals(directory.last())) {
@@ -180,7 +181,7 @@ public class NamingServer implements Service, Registration {
         if (path == null) {
             throw new NullPointerException("File is null parameter.");
         }
-        PathNode l_currentPathNode = this.root;
+        PathNode l_currentPathNode = this.d_root;
 
         for (String component : path) {
             if (component.equals(path.last())) {
@@ -199,7 +200,7 @@ public class NamingServer implements Service, Registration {
 
     @Override
     public Storage getStorage(Path file) throws FileNotFoundException {
-        return this.root.getNodeByPath(file).getStubs().storageStub;
+        return this.d_root.getNodeByPath(file).getStubs().storageStub;
     }
 
     // The method register is documented in Registration.java.
@@ -221,16 +222,16 @@ public class NamingServer implements Service, Registration {
         }
 
         for (Path l_path : files) {
-            l_currentPathNode = this.root;
-
-            // TODO Assumption here is that no directory will have the same filename.
-            String fileName = l_path.last();
-            for (String path : l_path) {
-                if (!path.equals(fileName) && l_currentPathNode.getChildren().containsKey(path)) {
+            l_currentPathNode = this.d_root;
+            int l_lastIndex = l_path.length() - 1;
+            int index = 0;
+            for (Iterator<String> l_pathIterator = l_path.iterator(); l_pathIterator.hasNext(); index++) {
+                String path = l_pathIterator.next();
+                if (l_lastIndex > index && l_currentPathNode.getChildren().containsKey(path)) {
                     l_currentPathNode = l_currentPathNode.getChildren().get(path);
                 } else {
                     // No serverStub if path belongs to file.
-                    if (path.equals(fileName)) {
+                    if (l_lastIndex == index) {
                         try {
                             l_currentPathNode.addChild(path, null);
                         } catch (UnsupportedOperationException p_e) {

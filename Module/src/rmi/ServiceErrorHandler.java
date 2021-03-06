@@ -10,6 +10,12 @@ public class ServiceErrorHandler implements Thread.UncaughtExceptionHandler {
     private final Skeleton<?> d_skeleton;
     private final Socket d_clientSocket;
 
+    /**
+     * Parameterized constructor to set the skeleton for this instance.
+     *
+     * @param p_skeleton     Skeleton for which this handler is being attached.
+     * @param p_clientSocket Client socket which was being used while exception.
+     */
     public ServiceErrorHandler(Skeleton<?> p_skeleton, Socket p_clientSocket) {
         d_skeleton = p_skeleton;
         d_clientSocket = p_clientSocket;

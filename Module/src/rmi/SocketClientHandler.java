@@ -7,40 +7,52 @@ import java.io.ObjectOutputStream;
 import java.lang.reflect.InvocationTargetException;
 import java.net.Socket;
 
+/**
+ * Thread to handle client socket request for remote method invocations.
+ */
 class SocketClientHandler implements Runnable {
     private final Socket d_clientSocket;
     private final Skeleton<?> d_skeleton;
     private final Thread d_thread;
 
+    /**
+     * Parameterized constructor to initialise the thread with this class.
+     *
+     * @param p_clientSocket Client socket.
+     * @param p_skeleton     Skeleton which provides the target (local) class and interface.
+     */
     public SocketClientHandler(Socket p_clientSocket, Skeleton<?> p_skeleton) {
         d_thread = new Thread(this);
         d_clientSocket = p_clientSocket;
         d_skeleton = p_skeleton;
     }
 
+    /**
+     * Starts the thread.
+     */
     public void start() {
         d_thread.start();
     }
+
 
     public void run() {
         // Sets the service error handler. If exception not handled manually, ServiceErrorHandler will handle it.
         Thread.setDefaultUncaughtExceptionHandler(new ServiceErrorHandler(d_skeleton, d_clientSocket));
         try {
-            LocalProxyHandler<Object> l_localProxyHandler =
-                    new LocalProxyHandler<>(d_skeleton.getTarget(), d_skeleton.getRepresentativeClass(), d_clientSocket.getInputStream());
-
+            // The local proxy handler is a custom proxy handler to invoke a method on the local object.
+            LocalProxyHandler<?> l_localProxyHandler = new LocalProxyHandler<>(d_skeleton, d_clientSocket.getInputStream());
             try {
                 Object returnObject = l_localProxyHandler.invoke();
-                send(ResponseStatus.Ok, returnObject);
+                write(ResponseStatus.Ok, returnObject);
             } catch (ClassNotFoundException p_e) {
-                send(ResponseStatus.InternalServerErrorException, p_e.getCause());
+                write(ResponseStatus.InternalServerErrorException, p_e.getCause());
             } catch (InvocationTargetException p_e) {
                 // When the called method throws an exception
-                send(ResponseStatus.BadRequestException, p_e.getCause());
+                write(ResponseStatus.BadRequestException, p_e.getCause());
             } catch (IllegalAccessException p_e) {
-                send(ResponseStatus.UnauthorizedException, p_e.getCause());
+                write(ResponseStatus.UnauthorizedException, p_e.getCause());
             } catch (NoSuchMethodException p_e) {
-                send(ResponseStatus.NotFoundException, p_e.getCause());
+                write(ResponseStatus.NotFoundException, p_e.getCause());
             }
         } catch (IOException p_ioException) {
             this.d_skeleton.service_error(new RMIException(p_ioException));
@@ -53,7 +65,15 @@ class SocketClientHandler implements Runnable {
         }
     }
 
-    public void send(ResponseStatus p_responseStatus, Object returnValue) {
+    /**
+     * Writes response status and returned value (from invoking the method on local object) on the
+     * <code>ObjectOutputStream</code>.
+     *
+     * @param p_responseStatus Response status from enum <code>ResponseStatus</code>.
+     * @param returnValue      Value returned from invoking the method.
+     * @see ResponseStatus To know the types of response status.
+     */
+    public void write(ResponseStatus p_responseStatus, Object returnValue) {
         // Get output stream to unmarshal message
         ObjectOutputStream l_objectOutputStream;
         try {

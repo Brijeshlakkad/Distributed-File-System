@@ -14,12 +14,14 @@ import java.net.Socket;
 import java.util.Objects;
 
 /**
+ * This class handles invocation made on the stub which will be directed to the server stub (Skeleton) residing at the
+ * server.
  * <p>
  * If this class not implemented as
  * <code>Serializable</code>, JVM will throw java.io.NotSerializableException when writing on
  * <code>ObjectOutputStream</code>.
  * <p>
- * https://docs.oracle.com/javase/8/docs/api/java/io/ObjectInputStream.html
+ * See https://docs.oracle.com/javase/8/docs/api/java/io/ObjectInputStream.html
  *
  * @author Brijesh Lakkad
  * @version 1.0

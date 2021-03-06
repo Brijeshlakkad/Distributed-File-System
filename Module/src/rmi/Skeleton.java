@@ -85,6 +85,7 @@ public class Skeleton<T> {
      * <p>
      * If any invalid data member, throws an exception explaining the reason.
      * </p>
+     *
      * <p>
      * Private method; This method should only be called from constructor.
      *
@@ -212,26 +213,38 @@ public class Skeleton<T> {
         isAlive = false;
     }
 
-    public synchronized boolean isAlive(){
+    /**
+     * Checks if the skeleton is running or not.
+     *
+     * @return True if it is running.
+     */
+    public synchronized boolean isAlive() {
         return isAlive;
     }
 
+    /**
+     * Gets the target class of the skeleton. This represents the local object on which remote method invocation will be
+     * handled.
+     *
+     * @return Value of the target class.
+     */
     public T getTarget() {
         return this.d_server;
     }
 
+    /**
+     * Interface to be provided for remote method invocation.
+     *
+     * @return Value of the interface.
+     */
     public Class<?> getRepresentativeClass() {
-        return this.d_class;
-    }
-
-    public Class<?> getInterface() {
         return this.d_class;
     }
 
     /**
      * Gets the assigned at which skeleton is running.
      *
-     * @return Value of the address.
+     * @return Value of the socket address.
      */
     public synchronized InetSocketAddress getAddress() {
         return d_address;

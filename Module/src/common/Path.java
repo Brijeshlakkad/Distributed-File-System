@@ -45,7 +45,8 @@ public class Path implements Iterable<String>, Serializable {
      *                                  string.
      */
     public Path(Path path, String component) {
-        if (component == null || component.isEmpty() || component.contains(DELIMITER) || component.contains(COLON)) {
+        if (component == null || component.isEmpty() ||
+                component.contains(DELIMITER) || component.contains(COLON)) {
             throw new IllegalArgumentException("Invalid component path");
         }
         pathComponents = new ArrayList<>();
@@ -69,6 +70,9 @@ public class Path implements Iterable<String>, Serializable {
      *                                  a colon character.
      */
     public Path(String path) {
+        if (path == null || path.isEmpty() || path.contains(COLON)) {
+            throw new IllegalArgumentException("Invalid component path");
+        }
         if (!path.startsWith(DELIMITER))
             throw new IllegalArgumentException("Path string does not begin with a forward slash!");
         pathComponents = new ArrayList<>(Arrays.asList(path.split(DELIMITER)));
@@ -219,7 +223,15 @@ public class Path implements Iterable<String>, Serializable {
      * @return The <code>File</code> object.
      */
     public File toFile(File root) {
-        return new File(root.toURI().relativize(new File(this.toString()).toURI()).toString());
+        return new File(root.toURI().relativize(URI.create(this.toString())).toString());
+    }
+
+    /**
+     * Length of the path.
+     * @return Value of the length of path.
+     */
+    public int length(){
+        return this.pathComponents.size();
     }
 
     /**
