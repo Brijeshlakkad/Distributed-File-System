@@ -63,21 +63,28 @@ public class RemoteProxyHandler implements InvocationHandler, Serializable {
                 } catch (Exception e) {
                     throw new RMIException(e);
                 }
-                if (p_method.getReturnType() != void.class) {
-                    // 3 Read the received data
-                    ObjectInputStream inputStream = new ObjectInputStream(l_clientSocket.getInputStream());
 
+                // 3 Read the received data
+                ObjectInputStream inputStream = new ObjectInputStream(l_clientSocket.getInputStream());
+                if (inputStream.read() < 0) {
                     // 3.1 Unmarshal the data and check the response status
                     ResponseStatus l_responseStatus = (ResponseStatus) inputStream.readObject();
 
-                    // 3.2 Return value if the response status value is 200.
-                    Object responseObject = inputStream.readObject();
+                    if (inputStream.read() < 0) {
+                        // 3.2 Return value if the response status value is 200.
+                        Object responseObject = inputStream.readObject();
 
-                    if (l_responseStatus == ResponseStatus.Ok) {
-                        return responseObject;
-                    } else {
-                        throw (Throwable) responseObject;
+                        if (l_responseStatus == ResponseStatus.Ok) {
+                            return responseObject;
+                        } else {
+                            throw (Throwable) responseObject;
+                        }
                     }
+                }
+
+                // If method was expected to return an object and input stream was empty.
+                if (p_method.getReturnType() != void.class && inputStream.read() < -1) {
+                    throw new RMIException("Connection failed");
                 } else {
                     return null;
                 }
