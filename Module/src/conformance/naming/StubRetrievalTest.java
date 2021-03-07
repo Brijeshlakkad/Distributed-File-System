@@ -1,10 +1,10 @@
 package conformance.naming;
 
-import common.Path;
-import storage.Storage;
-import test.TestFailed;
+import java.io.*;
 
-import java.io.FileNotFoundException;
+import test.*;
+import common.*;
+import storage.*;
 
 /** Tests that the naming server <code>getStorage</code> method returns the
     correct storage server stubs.

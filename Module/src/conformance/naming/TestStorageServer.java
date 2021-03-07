@@ -1,17 +1,12 @@
 package conformance.naming;
 
-import common.Path;
-import naming.Registration;
-import rmi.RMIException;
-import rmi.Skeleton;
-import rmi.Stub;
-import storage.Command;
-import storage.Storage;
-import test.Test;
-import test.TestFailed;
-import test.TestUtil;
+import java.net.*;
 
-import java.net.UnknownHostException;
+import test.*;
+import rmi.*;
+import common.*;
+import naming.*;
+import storage.*;
 
 /** Base class of storage servers used to test the naming server.
 
