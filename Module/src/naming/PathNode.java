@@ -44,11 +44,14 @@ class ServerStubs {
  * File node in naming server's directory tree
  */
 public class PathNode {
-    private Path nodePath;
+    private final Path nodePath;
     private int accessTime;
-    private ServerStubs serverStubs;    // Storage server of the original copy
-    private HashSet<ServerStubs> replicaStubs;
-    private HashMap<String, PathNode> childNodes;
+    /**
+     * Storage server of the original copy
+     */
+    private ServerStubs serverStubs;
+    private final HashSet<ServerStubs> replicaStubs;
+    private final HashMap<String, PathNode> childNodes;
 
     public PathNode(Path nodePath, ServerStubs serverStubs) {
         this.nodePath = nodePath;
@@ -91,6 +94,12 @@ public class PathNode {
         throw new UnsupportedOperationException("Unable to find the child node!");
     }
 
+    /**
+     * Checks if the child path node exists and it represents a directory or not.
+     *
+     * @param p_currentPath The child path to be checked.
+     * @return True if the child node exists and it represents a directory; false otherwise.
+     */
     public boolean doesChildDirectoryExist(String p_currentPath) {
         try {
             PathNode l_currentNode = getChildNode(p_currentPath);
@@ -100,6 +109,12 @@ public class PathNode {
         }
     }
 
+    /**
+     * Checks if the child path node exists and it represents a file or not.
+     *
+     * @param p_currentPath The child path to be checked.
+     * @return True if the child node exists and it represents a file; false otherwise.
+     */
     public boolean doesChildFileExist(String p_currentPath) {
         try {
             PathNode l_currentNode = getChildNode(p_currentPath);

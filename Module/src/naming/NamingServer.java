@@ -38,7 +38,7 @@ public class NamingServer implements Service, Registration {
     private final Skeleton<Registration> d_registrationSkeleton;
     private final Skeleton<Service> d_serviceSkeleton;
     private final List<ServerStubs> d_registeredServerStubs;
-    private volatile boolean alive = false;
+    private volatile boolean d_alive = false;
 
     /**
      * Creates the naming server object.
@@ -47,9 +47,9 @@ public class NamingServer implements Service, Registration {
      * The naming server is not started.
      */
     public NamingServer() {
-        this.d_root = new PathNode(new Path(), null);
-        this.d_registrationSkeleton = new Skeleton<>(Registration.class, this, new InetSocketAddress(NamingStubs.REGISTRATION_PORT));
-        this.d_serviceSkeleton = new Skeleton<>(Service.class, this, new InetSocketAddress(NamingStubs.SERVICE_PORT));
+        d_root = new PathNode(new Path(), null);
+        d_registrationSkeleton = new Skeleton<>(Registration.class, this, new InetSocketAddress(NamingStubs.REGISTRATION_PORT));
+        d_serviceSkeleton = new Skeleton<>(Service.class, this, new InetSocketAddress(NamingStubs.SERVICE_PORT));
         d_registeredServerStubs = new ArrayList<>();
     }
 
@@ -64,18 +64,14 @@ public class NamingServer implements Service, Registration {
      *                      be started. The user should not attempt to start the server again if an exception occurs.
      */
     public synchronized void start() throws RMIException {
-        if (alive)
+        if (d_alive)
             throw new RMIException("Failed to start! Calling again may give the same result");
-        synchronized (this) {
-            this.alive = true;
-        }
+        d_alive = true;
         try {
             d_registrationSkeleton.start();
             d_serviceSkeleton.start();
         } catch (RMIException p_rmiException) {
-            synchronized (this) {
-                alive = false;
-            }
+            d_alive = false;
             throw new RMIException("Couldn't start naming server", p_rmiException);
         }
     }
@@ -97,7 +93,7 @@ public class NamingServer implements Service, Registration {
             stopped(e);
         } finally {
             synchronized (this) {
-                alive = false;
+                d_alive = false;
             }
         }
     }
@@ -138,7 +134,7 @@ public class NamingServer implements Service, Registration {
     public boolean createFile(Path p_filePath)
             throws RMIException, FileNotFoundException {
         if (p_filePath == null) {
-            throw new NullPointerException("File is a null parameter.");
+            throw new NullPointerException("File path is a null parameter!");
         }
         if (p_filePath.isRoot()) {
             return false;
@@ -175,7 +171,7 @@ public class NamingServer implements Service, Registration {
     @Override
     public boolean createDirectory(Path p_directoryPath) throws FileNotFoundException {
         if (p_directoryPath == null) {
-            throw new NullPointerException("File is a null parameter.");
+            throw new NullPointerException("Directory path is a null parameter!");
         }
         if (p_directoryPath.isRoot()) {
             return false;
@@ -187,10 +183,13 @@ public class NamingServer implements Service, Registration {
             try {
                 boolean isLastIndex = !l_pathIterator.hasNext();
                 if (l_currentNode.doesChildFileExist(l_childPath)) {
-                    // If given a path to an existing file or has a parent as a file.
+                    // If given a path to an existing file
                     if (isLastIndex)
                         return false;
-                    break;
+                    else {
+                        // The child path has a parent as a file.
+                        break;
+                    }
                 }
                 if (isLastIndex) {
                     if (l_currentNode.doesChildDirectoryExist(l_childPath)) {
@@ -214,14 +213,14 @@ public class NamingServer implements Service, Registration {
         }
         PathNode l_currentPathNode = this.d_root;
 
-        for (String component : path) {
-            if (component.equals(path.last())) {
-                if (l_currentPathNode.getChildren().containsKey(component))
-                    l_currentPathNode.deleteChild(component);
+        for (String l_childPath : path) {
+            if (l_childPath.equals(path.last())) {
+                if (l_currentPathNode.getChildren().containsKey(l_childPath))
+                    l_currentPathNode.deleteChild(l_childPath);
                 else
                     return false;
-            } else if (l_currentPathNode.getChildren().containsKey(component)) {
-                l_currentPathNode = l_currentPathNode.getChildren().get(component);
+            } else if (l_currentPathNode.getChildren().containsKey(l_childPath)) {
+                l_currentPathNode = l_currentPathNode.getChildren().get(l_childPath);
             } else {
                 throw new FileNotFoundException("Parent directory not found!");
             }
@@ -254,10 +253,8 @@ public class NamingServer implements Service, Registration {
         if (client_stub == null || command_stub == null || files == null) {
             throw new NullPointerException("Register function has null parameters.");
         }
-        PathNode l_currentPathNode;
-        ArrayList<Path> l_duplicates = new ArrayList<>();
-        ServerStubs l_serverStubs = new ServerStubs(client_stub, command_stub);
 
+        ServerStubs l_serverStubs = new ServerStubs(client_stub, command_stub);
         synchronized (d_registeredServerStubs) {
             if (d_registeredServerStubs.contains(l_serverStubs)) {
                 throw new IllegalStateException("Storage server has been already registered.");
@@ -265,6 +262,9 @@ public class NamingServer implements Service, Registration {
             d_registeredServerStubs.add(l_serverStubs);
         }
 
+        // List duplicate files to let the server delete them.
+        ArrayList<Path> l_duplicates = new ArrayList<>();
+        PathNode l_currentPathNode;
         for (Path l_path : files) {
             l_currentPathNode = this.d_root;
             Iterator<String> l_pathIterator = l_path.iterator();
@@ -292,10 +292,17 @@ public class NamingServer implements Service, Registration {
         return l_duplicates.toArray(new Path[0]);
     }
 
-    public ServerStubs getServerStubs() throws FileNotFoundException {
+    /**
+     * Get a random <code>ServerStub</code> from registered list.
+     *
+     * @return Random <code>ServerStub</code>
+     * @throws IllegalStateException If no storage servers are connected to the naming server.
+     */
+    public ServerStubs getServerStubs() throws IllegalStateException {
         if (this.d_registeredServerStubs.size() == 0) {
-            throw new FileNotFoundException("No registered server stub!");
+            throw new IllegalStateException("No registered server stub!");
         }
-        return this.d_registeredServerStubs.get(new Random().nextInt(this.d_registeredServerStubs.size()));
+        int l_randomServerIndex = new Random().nextInt(this.d_registeredServerStubs.size());
+        return this.d_registeredServerStubs.get(l_randomServerIndex);
     }
 }
