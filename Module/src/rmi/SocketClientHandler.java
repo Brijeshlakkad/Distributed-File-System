@@ -1,7 +1,5 @@
 package rmi;
 
-import rmi.enums.ResponseStatus;
-
 import java.io.IOException;
 import java.io.ObjectOutputStream;
 import java.lang.reflect.InvocationTargetException;

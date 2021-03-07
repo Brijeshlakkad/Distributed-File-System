@@ -1,4 +1,4 @@
-package rmi.utils;
+package rmi;
 
 import rmi.RMIException;
 

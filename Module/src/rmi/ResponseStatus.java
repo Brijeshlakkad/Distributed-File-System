@@ -1,4 +1,4 @@
-package rmi.enums;
+package rmi;
 
 /**
  * https://cloud.google.com/endpoints/docs/frameworks/java/exceptions

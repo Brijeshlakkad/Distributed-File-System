@@ -1,7 +1,5 @@
 package rmi;
 
-import rmi.utils.RemoteUtil;
-
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;

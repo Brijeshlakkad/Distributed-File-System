@@ -1,7 +1,5 @@
 package rmi;
 
-import rmi.utils.RemoteUtil;
-
 import java.lang.reflect.Proxy;
 import java.net.InetSocketAddress;
 import java.net.UnknownHostException;

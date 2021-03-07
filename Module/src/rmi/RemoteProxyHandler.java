@@ -1,8 +1,5 @@
 package rmi;
 
-import rmi.enums.ResponseStatus;
-import rmi.utils.RemoteUtil;
-
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.io.Serializable;
