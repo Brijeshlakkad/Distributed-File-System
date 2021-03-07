@@ -121,31 +121,13 @@ public class NamingServer implements Service, Registration {
         if (p_path.isRoot()) {
             return true;
         }
-        Iterator<String> l_pathIterator = p_path.iterator();
-        PathNode l_currentNode = this.d_root;
-        while (l_pathIterator.hasNext()) {
-            String l_childPath = l_pathIterator.next();
-            try {
-                l_currentNode = l_currentNode.getChildNode(l_childPath);
-            } catch (UnsupportedOperationException p_e) {
-                throw new FileNotFoundException("Path cannot be found!");
-            }
-        }
+        PathNode l_currentNode = this.d_root.getNodeByPath(p_path);
         return !l_currentNode.isFile();
     }
 
     @Override
     public String[] list(Path p_directory) throws FileNotFoundException {
-        Iterator<String> l_pathIterator = p_directory.iterator();
-        PathNode l_currentNode = this.d_root;
-        while (l_pathIterator.hasNext()) {
-            String l_childPath = l_pathIterator.next();
-            try {
-                l_currentNode = l_currentNode.getChildNode(l_childPath);
-            } catch (UnsupportedOperationException p_e) {
-                throw new FileNotFoundException("Path cannot be found!");
-            }
-        }
+        PathNode l_currentNode = this.d_root.getNodeByPath(p_directory);
         if (l_currentNode.isFile()) {
             throw new FileNotFoundException("Path cannot be found or doesn't refer to a directory!");
         }
