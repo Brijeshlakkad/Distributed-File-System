@@ -78,6 +78,37 @@ public class PathNode {
         return childNodes;
     }
 
+    /**
+     * Gets the child path node using the string of the child-path.
+     *
+     * @param p_pathKey String of the child path.
+     * @return <code>PathNode</code> representing the child node of this PathNode.
+     * @throws UnsupportedOperationException If the child node doesn't exist.
+     */
+    public PathNode getChildNode(String p_pathKey) throws UnsupportedOperationException {
+        if (this.childNodes.containsKey(p_pathKey))
+            return this.childNodes.get(p_pathKey);
+        throw new UnsupportedOperationException("Unable to find the child node!");
+    }
+
+    public boolean doesChildDirectoryExist(String p_currentPath) {
+        try {
+            PathNode l_currentNode = getChildNode(p_currentPath);
+            return !l_currentNode.getChildren().keySet().isEmpty();
+        } catch (UnsupportedOperationException p_e) {
+            return false;
+        }
+    }
+
+    public boolean doesChildFileExist(String p_currentPath) {
+        try {
+            PathNode l_currentNode = getChildNode(p_currentPath);
+            return l_currentNode.isFile();
+        } catch (UnsupportedOperationException p_e) {
+            return false;
+        }
+    }
+
     public void addChild(String component, PathNode child) throws UnsupportedOperationException {
         // if (isFile())
         //     throw new UnsupportedOperationException("Unable to add child to a leaf node");

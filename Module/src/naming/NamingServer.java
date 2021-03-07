@@ -6,12 +6,12 @@ import rmi.Skeleton;
 import storage.Command;
 import storage.Storage;
 
-import java.io.File;
 import java.io.FileNotFoundException;
 import java.net.InetSocketAddress;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Random;
 
 /**
  * Naming server.
@@ -116,64 +116,113 @@ public class NamingServer implements Service, Registration {
 
     // The following methods are documented in Service.java.
     @Override
-    public boolean isDirectory(Path path) throws FileNotFoundException {
-        if (new File(path.toString()).exists()) {
-            return new File(path.toString()).isDirectory();
+    public boolean isDirectory(Path p_path) throws FileNotFoundException {
+        // If the path represents the root
+        if (p_path.isRoot()) {
+            return true;
         }
-        throw new FileNotFoundException();
+        Iterator<String> l_pathIterator = p_path.iterator();
+        PathNode l_currentNode = this.d_root;
+        while (l_pathIterator.hasNext()) {
+            String l_childPath = l_pathIterator.next();
+            try {
+                l_currentNode = l_currentNode.getChildNode(l_childPath);
+            } catch (UnsupportedOperationException p_e) {
+                throw new FileNotFoundException("Path cannot be found!");
+            }
+        }
+        return !l_currentNode.isFile();
     }
 
     @Override
-    public String[] list(Path directory) throws FileNotFoundException {
-        if (this.isDirectory(directory)) {
-            return new File(directory.toString()).list();
+    public String[] list(Path p_directory) throws FileNotFoundException {
+        Iterator<String> l_pathIterator = p_directory.iterator();
+        PathNode l_currentNode = this.d_root;
+        while (l_pathIterator.hasNext()) {
+            String l_childPath = l_pathIterator.next();
+            try {
+                l_currentNode = l_currentNode.getChildNode(l_childPath);
+            } catch (UnsupportedOperationException p_e) {
+                throw new FileNotFoundException("Path cannot be found!");
+            }
         }
-        return new String[0];
+        if (l_currentNode.isFile()) {
+            throw new FileNotFoundException("Path cannot be found or doesn't refer to a directory!");
+        }
+        return l_currentNode.getChildren().keySet().toArray(new String[0]);
     }
 
     @Override
-    public boolean createFile(Path file)
+    public boolean createFile(Path p_filePath)
             throws RMIException, FileNotFoundException {
-        if (file == null) {
-            throw new NullPointerException("File is null parameter.");
+        if (p_filePath == null) {
+            throw new NullPointerException("File is a null parameter.");
         }
-        PathNode l_currentPathNode = this.d_root;
-
-        for (String component : file) {
-            if (component.equals(file.last())) {
-                if (!l_currentPathNode.getChildren().containsKey(component))
-                    l_currentPathNode.addChild(component, null);
-                else
+        if (p_filePath.isRoot()) {
+            return false;
+        }
+        Iterator<String> l_pathIterator = p_filePath.iterator();
+        PathNode l_currentNode = this.d_root;
+        while (l_pathIterator.hasNext()) {
+            String l_childPath = l_pathIterator.next();
+            try {
+                boolean isLastIndex = !l_pathIterator.hasNext();
+                if (!isLastIndex && l_currentNode.doesChildFileExist(l_childPath)) {
+                    // If new file has parent as a file
+                    break;
+                }
+                if (isLastIndex) {
+                    if (l_currentNode.doesChildFileExist(l_childPath) ||
+                            l_currentNode.doesChildDirectoryExist(l_childPath)) {
+                        // If given a path to existing a directory or a file.
+                        return false;
+                    }
+                    ServerStubs l_serverStubs = getServerStubs();
+                    l_currentNode.addChild(l_childPath, new PathNode(p_filePath, l_serverStubs));
+                    l_serverStubs.commandStub.create(p_filePath);
                     return true;
-            } else if (l_currentPathNode.getChildren().containsKey(component) && !l_currentPathNode.isFile()) {
-                l_currentPathNode = l_currentPathNode.getChildren().get(component);
-            } else {
-                throw new FileNotFoundException("Parent directory not found!");
+                }
+                l_currentNode = l_currentNode.getChildNode(l_childPath);
+            } catch (UnsupportedOperationException p_e) {
+                break;
             }
         }
-        return false;
+        throw new FileNotFoundException("Path cannot be found!");
     }
 
     @Override
-    public boolean createDirectory(Path directory) throws FileNotFoundException {
-        if (directory == null) {
-            throw new NullPointerException("File is null parameter.");
+    public boolean createDirectory(Path p_directoryPath) throws FileNotFoundException {
+        if (p_directoryPath == null) {
+            throw new NullPointerException("File is a null parameter.");
         }
-        PathNode l_currentPathNode = this.d_root;
-
-        for (String component : directory) {
-            if (component.equals(directory.last())) {
-                if (!l_currentPathNode.getChildren().containsKey(component))
-                    l_currentPathNode.addChild(component, null);
-                else
+        if (p_directoryPath.isRoot()) {
+            return false;
+        }
+        Iterator<String> l_pathIterator = p_directoryPath.iterator();
+        PathNode l_currentNode = this.d_root;
+        while (l_pathIterator.hasNext()) {
+            String l_childPath = l_pathIterator.next();
+            try {
+                boolean isLastIndex = !l_pathIterator.hasNext();
+                if (l_currentNode.doesChildFileExist(l_childPath)) {
+                    // If given a path to an existing file or has a parent as a file.
+                    if (isLastIndex)
+                        return false;
+                    break;
+                }
+                if (isLastIndex) {
+                    if (l_currentNode.doesChildDirectoryExist(l_childPath)) {
+                        return false;
+                    }
+                    l_currentNode.addChild(l_childPath, new PathNode(p_directoryPath, null));
                     return true;
-            } else if (l_currentPathNode.getChildren().containsKey(component)) {
-                l_currentPathNode = l_currentPathNode.getChildren().get(component);
-            } else {
-                throw new FileNotFoundException("Parent directory not found!");
+                }
+                l_currentNode = l_currentNode.getChildNode(l_childPath);
+            } catch (UnsupportedOperationException p_e) {
+                break;
             }
         }
-        return false;
+        throw new FileNotFoundException("Path cannot be found!");
     }
 
     @Override
@@ -199,8 +248,21 @@ public class NamingServer implements Service, Registration {
     }
 
     @Override
-    public Storage getStorage(Path file) throws FileNotFoundException {
-        return this.d_root.getNodeByPath(file).getStubs().storageStub;
+    public Storage getStorage(Path p_filePath) throws FileNotFoundException {
+        Iterator<String> l_pathIterator = p_filePath.iterator();
+        PathNode l_currentNode = this.d_root;
+        while (l_pathIterator.hasNext()) {
+            String l_childPath = l_pathIterator.next();
+            try {
+                l_currentNode = l_currentNode.getChildNode(l_childPath);
+            } catch (UnsupportedOperationException p_e) {
+                throw new FileNotFoundException("Path cannot be found!");
+            }
+        }
+        if (!l_currentNode.isFile()) {
+            throw new FileNotFoundException("Path cannot be found!");
+        }
+        return l_currentNode.getStubs().storageStub;
     }
 
     // The method register is documented in Registration.java.
@@ -223,26 +285,35 @@ public class NamingServer implements Service, Registration {
 
         for (Path l_path : files) {
             l_currentPathNode = this.d_root;
-            int l_lastIndex = l_path.length() - 1;
-            int index = 0;
-            for (Iterator<String> l_pathIterator = l_path.iterator(); l_pathIterator.hasNext(); index++) {
-                String path = l_pathIterator.next();
-                if (l_lastIndex > index && l_currentPathNode.getChildren().containsKey(path)) {
-                    l_currentPathNode = l_currentPathNode.getChildren().get(path);
+            Iterator<String> l_pathIterator = l_path.iterator();
+            while (l_pathIterator.hasNext()) {
+                String l_childPath = l_pathIterator.next();
+                // To know the time of last path component (was used index to keep track of the last filename before)
+                boolean isLastIndex = !l_pathIterator.hasNext();
+                if (!isLastIndex && l_currentPathNode.getChildren().containsKey(l_childPath)) {
+                    l_currentPathNode = l_currentPathNode.getChildNode(l_childPath);
                 } else {
                     // No serverStub if path belongs to file.
-                    if (l_lastIndex == index) {
+                    if (isLastIndex) {
                         try {
-                            l_currentPathNode.addChild(path, null);
+                            l_currentPathNode.addChild(l_childPath, new PathNode(l_path, l_serverStubs));
                         } catch (UnsupportedOperationException p_e) {
                             l_duplicates.add(l_path);
                         }
                     } else {
-                        l_currentPathNode.addChild(path, new PathNode(l_path, l_serverStubs));
+                        l_currentPathNode.addChild(l_childPath, new PathNode(l_path, null));
+                        l_currentPathNode = l_currentPathNode.getChildNode(l_childPath);
                     }
                 }
             }
         }
         return l_duplicates.toArray(new Path[0]);
+    }
+
+    public ServerStubs getServerStubs() throws FileNotFoundException {
+        if (this.d_registeredServerStubs.size() == 0) {
+            throw new FileNotFoundException("No registered server stub!");
+        }
+        return this.d_registeredServerStubs.get(new Random().nextInt(this.d_registeredServerStubs.size()));
     }
 }
