@@ -5,7 +5,7 @@ package rmi;
  * Catches the exception occurred in the <code>Thread</code> execution.
  */
 public class ListenErrorHandler implements Thread.UncaughtExceptionHandler {
-    private Skeleton<?> d_skeleton;
+    private final Skeleton<?> d_skeleton;
 
     /**
      * Parameterized constructor to set the skeleton for this instance.
@@ -22,6 +22,6 @@ public class ListenErrorHandler implements Thread.UncaughtExceptionHandler {
     public void uncaughtException(Thread t, Throwable e) {
         d_skeleton.listen_error(new Exception(e));
 
-        // TODO Skeleton can be start again.
+        // TODO Skeleton can be start again?
     }
 }

@@ -14,6 +14,7 @@ import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.nio.file.Files;
 import java.rmi.Remote;
+import java.util.Objects;
 
 /**
  * Storage server.
@@ -26,7 +27,7 @@ public class StorageServer implements Storage, Command, Remote {
     private final File d_root;
     private final Skeleton<Storage> d_storageSkeleton;
     private final Skeleton<Command> d_commandSkeleton;
-    private volatile boolean alive = false;
+    private volatile boolean d_alive = false;
 
     /**
      * Creates a storage server, given a directory on the local filesystem.
@@ -60,15 +61,13 @@ public class StorageServer implements Storage, Command, Remote {
      */
     public synchronized void start(String hostname, Registration naming_server)
             throws RMIException, UnknownHostException, FileNotFoundException {
-        if (alive)
+        if (d_alive)
             throw new RMIException("Failed to start! Calling again may give the same result");
         if (!d_root.exists() || d_root.isFile()) {
             throw new FileNotFoundException("Root either doesn't exist or is a file.");
         }
 
-        synchronized (this) {
-            alive = true;
-        }
+        d_alive = true;
 
         // Validate the hostname.
         InetAddress.getByName(hostname);
@@ -82,9 +81,7 @@ public class StorageServer implements Storage, Command, Remote {
 
             pruneDuplicateFiles(duplicates);
         } catch (RMIException p_rmiException) {
-            synchronized (this) {
-                alive = false;
-            }
+            d_alive = false;
             throw new RMIException("Couldn't start naming server", p_rmiException);
         }
     }
@@ -104,7 +101,7 @@ public class StorageServer implements Storage, Command, Remote {
             stopped(e);
         } finally {
             synchronized (this) {
-                alive = false;
+                d_alive = false;
             }
         }
     }
@@ -257,8 +254,9 @@ public class StorageServer implements Storage, Command, Remote {
             try {
                 if (l_fileToBeDeleted.isDirectory()) {
                     long deleted = deleteIfDirectory(l_fileToBeDeleted);
-                    long expectedDeletionCount = (l_fileToBeDeleted.listFiles() == null || l_fileToBeDeleted.listFiles().length <= 0) ? 1 : l_fileToBeDeleted.listFiles().length + 1;
-                    // if the directory doesn't exist, l_hasFileDeleted will be set to true.
+                    long expectedDeletionCount = (l_fileToBeDeleted.listFiles() == null || Objects.requireNonNull(l_fileToBeDeleted.listFiles()).length <= 0) ?
+                            1 : Objects.requireNonNull(l_fileToBeDeleted.listFiles()).length + 1;
+                    // If the directory doesn't exist, l_hasFileDeleted will be set to true.
                     l_hasFileDeleted = deleted == expectedDeletionCount;
                 } else {
                     Files.delete(l_fileToBeDeleted.toPath());
@@ -275,6 +273,13 @@ public class StorageServer implements Storage, Command, Remote {
         }
     }
 
+    /**
+     * Delete operation may fail if the directory is not an empty one. Delete all the entities inside the directory and
+     * delete the directory itself.
+     *
+     * @param file File object of directory.
+     * @return Count of the child files and directories been deleted.
+     */
     private long deleteIfDirectory(File file) {
         long deleted = 0;
         File[] list = file.listFiles();
@@ -293,6 +298,11 @@ public class StorageServer implements Storage, Command, Remote {
         return deleted;
     }
 
+    /**
+     * Delete the parent directories if it is empty.
+     *
+     * @param p_path Path to the child which will be traversed back to search empty directory.
+     */
     private synchronized void deleteIfEmptyFolder(Path p_path) {
         if (p_path.isRoot()) {
             return;
