@@ -6,6 +6,7 @@ import java.io.Serializable;
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
+import java.net.ConnectException;
 import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.util.Objects;
@@ -83,10 +84,12 @@ public class RemoteProxyHandler implements InvocationHandler, Serializable {
 
                 // If method was expected to return an object and input stream was empty.
                 if (p_method.getReturnType() != void.class && inputStream.read() < -1) {
-                    throw new RMIException("Connection failed");
+                    throw new RMIException("Connection failed!");
                 } else {
                     return null;
                 }
+            } catch (ConnectException p_connectException) {
+                throw new RMIException("Connection refused!");
             }
             // close the client socket
         } else {
